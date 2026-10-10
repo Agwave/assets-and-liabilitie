@@ -42,15 +42,10 @@ Error: 找不到 config/assets.yaml，构建已中止。
 
 ### 文件长什么样
 
-结构是平铺的：一条记录 = 一个名字 + 一个金额，没有二级分类。
+**这个文件只放资产项和负债项**，没有别的东西。结构是平铺的：
+一条记录 = 一个名字 + 一个金额，没有二级分类。
 
 ```yaml
-profile:
-  name: 个人资产看板
-  subtitle: 资产与负债的静态快照
-  asOf: "2026-10-01"
-  note: 数据来自手工记账快照。
-
 assets:
   - name: 自住房
     amount: 1600000
@@ -63,6 +58,14 @@ liabilities:
     amount: 980000
     note: 年利率 3.1%，剩余 18 年
 ```
+
+### 标题这些在哪
+
+页头标题、副标题、数据截止日期、页脚备注是**固定信息，不随数据变**，
+所以它们在代码里：`config/site.ts`。想让看板换个名字就改那里。
+
+唯一要注意的是 `asOf`（数据截止日期）—— 它跟数据走，但**不会自动更新**，
+每期改完资产数据记得回 `config/site.ts` 改这一行。
 
 ### 三条规矩
 
@@ -80,7 +83,7 @@ liabilities:
 - `note` 是可选的，显示在名字下面，适合写「年化 2.6%」「按 2026-08 估值」这类口径。
 - **`assets` 不能为空；`liabilities` 可以一条都没有**（那就是无负债，页面显示空态）。
 - 值里含半角冒号或 `#` 要用引号包起来：`name: "招商银行: 活期"`。
-- 改 `asOf` 别忘了 —— 页头会显示「数据截至 …」。
+- 顶层只有 `assets` 和 `liabilities` 两个键，多写别的会被构建期校验拒掉。
 
 ### 写错了会怎样
 
@@ -102,8 +105,9 @@ Error: config/assets.yaml 的内容有问题（共 3 处），构建已中止：
 ## 目录结构
 
 ```
-config/assets.example.yaml  ← 模板，进 git
+config/assets.example.yaml  ← 数据模板，进 git
 config/assets.yaml          ← 你的真实数据，被 .gitignore 排除
+config/site.ts              ← 标题、副标题、数据截止日期、页脚备注（固定值）
 lib/config.ts               ← 读 YAML + 校验字段名/类型，坏配置在构建期报错
 lib/ledger.ts               ← 类型、汇总计算、排序、业务规则体检
 lib/format.ts               ← 人民币格式化

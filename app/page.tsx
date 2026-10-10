@@ -3,6 +3,7 @@ import { RankingList } from "@/components/ranking-list";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Panel } from "@/components/ui/panel";
+import { siteProfile } from "@/config/site";
 import { getLedgerConfig } from "@/lib/config";
 import { formatCNY } from "@/lib/format";
 import { summarize } from "@/lib/ledger";
@@ -35,7 +36,7 @@ function SectionHeading({
 }
 
 export default function Page() {
-  const { profile, assets, liabilities } = getLedgerConfig();
+  const { assets, liabilities } = getLedgerConfig();
   const summary = summarize(assets, liabilities);
 
   return (
@@ -45,7 +46,7 @@ export default function Page() {
       <div aria-hidden="true" className="tech-grid pointer-events-none fixed inset-0 -z-10" />
 
       <div className="mx-auto flex w-full max-w-5xl flex-col px-4 sm:px-6 lg:px-8">
-        <SiteHeader profile={profile} />
+        <SiteHeader profile={siteProfile} />
 
         <main className="flex flex-col gap-12">
           {/* ── 总览：净资产 + 三个汇总指标 ────────────────────── */}
@@ -92,7 +93,7 @@ export default function Page() {
           </section>
         </main>
 
-        <SiteFooter profile={profile} />
+        <SiteFooter profile={siteProfile} />
       </div>
     </>
   );

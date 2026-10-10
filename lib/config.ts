@@ -3,10 +3,13 @@ import path from "node:path";
 
 import { parse } from "yaml";
 
-import { collectLedgerProblems, type Entry, type Profile } from "@/lib/ledger";
+import { collectLedgerProblems, type Entry } from "@/lib/ledger";
 
 /**
  * 读取并校验 `config/assets.yaml`。
+ *
+ * **这个文件只放资产项和负债项。** 标题、副标题、数据截止日期、页脚备注
+ * 这些固定信息在 `config/site.ts` 里 —— 它们不随数据变，就不该混在数据文件里。
  *
  * 配置从 TypeScript 换成 YAML 之后，**编辑器不再帮你检查字段名了** ——
  * `amout:` 少打一个 t，YAML 解析器不会报错，只会安静地给出一条
@@ -25,11 +28,10 @@ const CONFIG_FILE = "config/assets.yaml";
 const EXAMPLE_FILE = "config/assets.example.yaml";
 const CONFIG_PATH = path.join(process.cwd(), CONFIG_FILE);
 
-const PROFILE_KEYS = ["name", "subtitle", "asOf", "note"] as const;
+const TOP_LEVEL_KEYS = ["assets", "liabilities"] as const;
 const ENTRY_KEYS = ["name", "amount", "note"] as const;
 
 export type LedgerConfig = {
-  readonly profile: Profile;
   readonly assets: readonly Entry[];
   readonly liabilities: readonly Entry[];
 };
@@ -153,34 +155,6 @@ function checkEntryList(side: string, value: unknown, problems: string[]): Entry
   return entries;
 }
 
-function checkProfile(value: unknown, problems: string[]): Profile | null {
-  if (!isRecord(value)) {
-    problems.push(`顶层的 \`profile\` 应该是一个字段组，现在是${typeName(value)}。`);
-    return null;
-  }
-
-  for (const key of Object.keys(value)) {
-    if (!(PROFILE_KEYS as readonly string[]).includes(key)) {
-      problems.push(
-        `profile 里有一个不认识的字段 \`${key}\`。可用的字段只有 ${PROFILE_KEYS.join(" / ")}。`,
-      );
-    }
-  }
-
-  const collected: Record<string, string> = {};
-  for (const key of PROFILE_KEYS) {
-    const field = value[key];
-    if (typeof field !== "string") {
-      problems.push(`profile.${key} 是${typeName(field)} —— 必须是一段文字。`);
-    } else {
-      collected[key] = field;
-    }
-  }
-
-  if (Object.keys(collected).length !== PROFILE_KEYS.length) return null;
-  return collected as unknown as Profile;
-}
-
 function loadLedgerConfig(): LedgerConfig {
   const source = readFileSync(CONFIG_PATH, "utf8");
 
@@ -206,14 +180,17 @@ function loadLedgerConfig(): LedgerConfig {
   const problems: string[] = [];
 
   for (const key of Object.keys(raw)) {
-    if (!["profile", "assets", "liabilities"].includes(key)) {
-      problems.push(
-        `顶层有一个不认识的字段 \`${key}\`。可用的字段只有 profile / assets / liabilities。`,
-      );
-    }
+    if ((TOP_LEVEL_KEYS as readonly string[]).includes(key)) continue;
+    // 老版本的配置里有 profile 段。直接报「不认识的字段」会让人摸不着头脑，
+    // 这里给一句明确的迁移提示。
+    problems.push(
+      key === "profile"
+        ? `顶层不该再有 \`profile\` 段了 —— 标题、副标题、数据截止日期、页脚备注` +
+            `已经挪到 config/site.ts 里固定下来。把这一段整段删掉即可。`
+        : `顶层有一个不认识的字段 \`${key}\`。可用的字段只有 ${TOP_LEVEL_KEYS.join(" / ")}。`,
+    );
   }
 
-  const profile = checkProfile(raw.profile, problems);
   const assets = checkEntryList("资产", raw.assets, problems);
   const liabilities = checkEntryList("负债", raw.liabilities, problems);
 
@@ -228,7 +205,7 @@ function loadLedgerConfig(): LedgerConfig {
     fail(`${CONFIG_FILE} 的数据有问题，构建已中止：`, ledgerProblems);
   }
 
-  return { profile: profile!, assets: assets!, liabilities: liabilities! };
+  return { assets: assets!, liabilities: liabilities! };
 }
 
 /** 上一次读到的结果，连同当时的文件修改时间。 */

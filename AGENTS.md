@@ -4,7 +4,9 @@
 没有数据库、没有接口。技术栈 Next.js（App Router）+ Tailwind v4 + shadcn/ui 约定。
 
 数据在 `config/assets.yaml`（**被 gitignore，不进仓库**），模板是
-`config/assets.example.yaml`。结构是**平铺**的：一条记录就是一个名字 + 一个金额，
+`config/assets.example.yaml`。**这个文件只放资产项和负债项** —— 顶层只有
+`assets` 和 `liabilities` 两个键。标题、副标题、数据截止日期、页脚备注这些
+固定信息在 `config/site.ts`。结构是**平铺**的：一条记录就是一个名字 + 一个金额，
 没有二级分类。
 
 ## 1. 每次改完代码，必须依次完成以下检查（禁止跳过）
@@ -37,13 +39,13 @@ pnpm build          # 3. 类型检查 + 静态生成（构建期还会跑配置�
 
 **第一层：形状**（`lib/config.ts`）—— 字段名、类型、结构
 
-| 拦住的错误                       | 为什么必须在构建期拦                                                                  |
-| -------------------------------- | ------------------------------------------------------------------------------------- |
-| 不认识的字段（如 `amout`）       | 拼错键名会静默变 `undefined`，是 YAML 最危险的失败模式。会顺便猜你本来想写哪个        |
-| `amount` 是字符串                | `1,600,000` / `1_600_000` / `"¥85000"` 都会被 YAML 当字符串。报错里直接给出该写成什么 |
-| 顶层字段不对 / `assets` 不是列表 | 结构错了，后面的检查没有意义                                                          |
-| 缺 `profile` 的某个字段          | 页头会渲染出 `undefined`                                                              |
-| 配置文件不存在                   | 被 gitignore 了，新克隆必须 `cp` 一份。报错里直接给出那条 `cp` 命令                   |
+| 拦住的错误                       | 为什么必须在构建期拦                                                                        |
+| -------------------------------- | ------------------------------------------------------------------------------------------- |
+| 不认识的字段（如 `amout`）       | 拼错键名会静默变 `undefined`，是 YAML 最危险的失败模式。会顺便猜你本来想写哪个              |
+| `amount` 是字符串                | `1,600,000` / `1_600_000` / `"¥85000"` 都会被 YAML 当字符串。报错里直接给出该写成什么       |
+| 顶层字段不对 / `assets` 不是列表 | 结构错了，后面的检查没有意义                                                                |
+| 顶层出现 `profile` 段            | 老版本的残留。会明确提示「已挪到 config/site.ts，整段删掉即可」，而不是只说「不认识的字段」 |
+| 配置文件不存在                   | 被 gitignore 了，新克隆必须 `cp` 一份。报错里直接给出那条 `cp` 命令                         |
 
 **第二层：业务规则**（`lib/ledger.ts` 的 `collectLedgerProblems`）
 
@@ -70,17 +72,17 @@ pnpm build          # 3. 类型检查 + 静态生成（构建期还会跑配置�
 
 **核心模块**（对应本仓库实际目录）：
 
-| 模块       | 对应位置                                                          | 职责                               |
-| ---------- | ----------------------------------------------------------------- | ---------------------------------- |
-| `config`   | `config/assets.example.yaml`、`lib/config.ts`                     | 模板、YAML 读取与字段校验          |
-| `data`     | `lib/ledger.ts`                                                   | 类型、汇总计算、排序、业务规则体检 |
-| `format`   | `lib/format.ts`                                                   | 人民币格式化与百分比               |
-| `charts`   | `components/ranking-list.tsx`、`app/globals.css`                  | 条形榜与两极色                     |
-| `sections` | `components/net-worth-panel.tsx`、`site-*.tsx`                    | 页面各区块                         |
-| `ui`       | `components/ui/`、`app/globals.css`                               | 卡片、占比条、主题 token           |
-| `theme`    | `components/theme-provider.tsx`、`theme-toggle.tsx`、`hooks/`     | 明暗切换                           |
-| `page`     | `app/page.tsx`、`app/layout.tsx`、`app/robots.ts`、`app/icon.svg` | 页面组装与元信息                   |
-| `build`    | `package.json`、`eslint.config.mjs`、`.prettierrc.json`           | 工具链配置                         |
+| 模块       | 对应位置                                                          | 职责                                |
+| ---------- | ----------------------------------------------------------------- | ----------------------------------- |
+| `config`   | `config/assets.example.yaml`、`config/site.ts`、`lib/config.ts`   | 数据模板、站点身份、YAML 读取与校验 |
+| `data`     | `lib/ledger.ts`                                                   | 类型、汇总计算、排序、业务规则体检  |
+| `format`   | `lib/format.ts`                                                   | 人民币格式化与百分比                |
+| `charts`   | `components/ranking-list.tsx`、`app/globals.css`                  | 条形榜与两极色                      |
+| `sections` | `components/net-worth-panel.tsx`、`site-*.tsx`                    | 页面各区块                          |
+| `ui`       | `components/ui/`、`app/globals.css`                               | 卡片、占比条、主题 token            |
+| `theme`    | `components/theme-provider.tsx`、`theme-toggle.tsx`、`hooks/`     | 明暗切换                            |
+| `page`     | `app/page.tsx`、`app/layout.tsx`、`app/robots.ts`、`app/icon.svg` | 页面组装与元信息                    |
+| `build`    | `package.json`、`eslint.config.mjs`、`.prettierrc.json`           | 工具链配置                          |
 
 **规则**：
 
@@ -297,6 +299,11 @@ done; done
 - **`config/assets.yaml` 必须留在 `.gitignore` 里。** 里面是真实的个人财务数据。
   仓库里提交的是 `config/assets.example.yaml`。代价是从仓库部署时构建机会读不到它 ——
   部署方式见 README 的「部署」一节。删掉这条 ignore 之前先想清楚这一点。
+- **固定信息不要塞回 `config/assets.yaml`。** 标题、副标题、数据截止日期、页脚备注
+  在 `config/site.ts`；那个 YAML 只放资产项和负债项。这条边界是刻意的 ——
+  数据文件要保持「每一行都是一条资产或一笔负债」的单纯性，混进站点头衔之后，
+  「这个文件里什么是我的钱、什么是页面文案」就说不清了。
+  代价是 `asOf` 不跟数据走，要在 `site.ts` 里手动同步 —— 这是接受了的。
 - **YAML 有几个会静默出错的写法**，这也是 `lib/config.ts` 那层校验存在的理由：
   `1,600,000` 和 `1_600_000` 都会被解析成**字符串**（下划线是 JS 的写法，YAML 不认）；
   值里的半角冒号会让整份文件解析失败（`name: 招商银行: 活期` 要加引号）；
