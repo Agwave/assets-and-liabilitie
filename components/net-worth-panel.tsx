@@ -53,9 +53,11 @@ type Props = {
     readonly totalLiabilities: number;
     readonly debtRatio: number;
   };
+  readonly assetCount: number;
+  readonly liabilityCount: number;
 };
 
-export function NetWorthPanel({ summary }: Props) {
+export function NetWorthPanel({ summary, assetCount, liabilityCount }: Props) {
   const { netWorth, totalAssets, totalLiabilities, debtRatio } = summary;
   const level = debtLevel(debtRatio);
 
@@ -84,16 +86,16 @@ export function NetWorthPanel({ summary }: Props) {
         <StatTile
           label="总资产"
           value={totalAssets}
-          color="var(--positive)"
+          color="var(--asset)"
           Icon={TrendingUp}
-          hint="计入全部资产分类"
+          hint={`共 ${assetCount} 项`}
         />
         <StatTile
           label="总负债"
           value={totalLiabilities}
-          color="var(--negative)"
+          color="var(--debt)"
           Icon={TrendingDown}
-          hint="房贷、消费贷与信用卡"
+          hint={liabilityCount > 0 ? `共 ${liabilityCount} 笔` : "当前没有负债"}
         />
 
         <div className="flex flex-col gap-2 rounded-xl border border-border bg-card-raised p-4">

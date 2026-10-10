@@ -1,108 +1,75 @@
-import type { SeriesSlot } from "@/lib/palette";
-
 /**
  * 账本的类型与汇总逻辑。数据本身在 `config/assets.ts`。
  *
- * 这个模块刻意把**业务约束放进类型系统**：金额写错类型、颜色槽位超出验证范围、
- * 必填字段漏写，都是编译错误，而不是页面上一个悄悄错掉的数字。
- * 类型管不到的部分（重复 id、非正数金额、空类别、槽位撞车）由
- * `assertLedgerIsSound` 在构建期抛错拦住 —— 见 `config/assets.ts` 末尾。
+ * 结构是**平铺**的：一条记录就是一个资产（或一笔负债）加上它的金额，
+ * 没有再分「类别 → 条目」两级。这是刻意的 —— 页面上要回答的问题只有
+ * 「我有哪些东西、各值多少」，中间加一层分类只会多一处要维护、多一层要点开。
+ *
+ * 这个模块把**业务约束放进类型系统**：漏字段、金额写成字符串都是编译错误。
+ * 类型管不到的部分（重名、非正数金额、资产为空）由 `assertLedgerIsSound`
+ * 在构建期抛错拦住 —— 见 `config/assets.ts` 末尾。
  */
 
-/** 一条明细。金额单位是「元」。 */
-export type LineItem = {
+/** 一条记录。金额单位是「元」。 */
+export type Entry = {
   readonly name: string;
-  /** 金额，单位：元。**必须是正数**：正负由它所在的资产/负债分组决定，不靠符号。 */
+  /** 金额，单位：元。**必须是正数**：正负由它在资产表还是负债表决定，不靠符号。 */
   readonly amount: number;
-  /** 可选备注，例如「年化 2.6%」「按 2026-08 估值」。会显示在条目名下方。 */
+  /** 可选备注，例如「年化 2.6%」「按 2026-08 估值」。显示在条目名下方。 */
   readonly note?: string;
 };
 
-/** 一个分类，下挂若干条目。 */
-export type Category = {
-  readonly id: string;
-  readonly name: string;
-  /** 一句话说明这一类包含什么，显示在分类标题下方。 */
-  readonly description: string;
-  readonly items: readonly LineItem[];
-};
-
-/**
- * 资产分类。比负债分类多一个 `colorSlot`。
- *
- * `colorSlot` 决定它在环形图里用哪个颜色。它**显式写死**、不跟数组顺序走 ——
- * 调整条目顺序不该让颜色跟着变，否则读者刚记住「蓝色是现金」，一改配置就错位。
- * 类型是 `SeriesSlot`（0..4），所以第 6 个分类拿不到合法槽位，加不进来。
- */
-export type AssetCategory = Category & {
-  readonly colorSlot: SeriesSlot;
-};
-
-/** 负债分类。不画环形图，所以没有颜色槽位。 */
-export type LiabilityCategory = Category;
-
-/** 一个分类算出来的占比结果。 */
-export type CategoryShare<C extends Category> = {
-  readonly category: C;
-  /** 该分类金额合计 */
-  readonly total: number;
-  /** 占比，0..1。父级合计为 0 时为 0 */
+/** 排好序的一条记录，附带它占该侧合计的比例。 */
+export type RankedEntry = {
+  readonly entry: Entry;
+  /** 占比，0..1。该侧合计为 0 时为 0 */
   readonly share: number;
 };
 
-export type LedgerSummary<A extends Category, L extends Category> = {
+export type LedgerSummary = {
   readonly totalAssets: number;
   readonly totalLiabilities: number;
   /** 净资产 = 总资产 − 总负债。可以是负数。 */
   readonly netWorth: number;
   /** 负债率 = 总负债 ÷ 总资产，0..1。总资产为 0 时为 0。 */
   readonly debtRatio: number;
-  readonly assetShares: readonly CategoryShare<A>[];
-  readonly liabilityShares: readonly CategoryShare<L>[];
+  /** 按金额从大到小 */
+  readonly assets: readonly RankedEntry[];
+  readonly liabilities: readonly RankedEntry[];
 };
 
-/** 单个分类的金额合计。 */
-export function totalOf(category: Category): number {
-  return category.items.reduce((sum, item) => sum + item.amount, 0);
+/** 一组的金额合计。 */
+export function totalOf(entries: readonly Entry[]): number {
+  return entries.reduce((sum, entry) => sum + entry.amount, 0);
 }
 
 /**
  * 把账本算成页面要用的汇总。
  *
- * **不做排序。** 分类一律保持配置里的顺序：环形图里相邻两个扇区的颜色
- * 是跑过色盲安全验证的固定组合（见 `lib/palette.ts`），按金额排序会把
- * 任意两个色相凑到一起，验证过的保证就失效了。
- * 大小关系靠旁边始终可见的数值和占比表达，不靠颜色。
+ * 这里**做**降序排序，和之前按分类画环形图时不一样：条形榜要回答的就是
+ * 「哪一项最大」，长度必须和大小同序，否则得靠读者自己一项项去比。
+ * 排序只改行的先后，不改颜色 —— 整个榜单是**单色**的，
+ * 所以不存在「换个筛选条件颜色就跟着变」那种误导。
  */
-export function summarize<A extends Category, L extends Category>(
-  assets: readonly A[],
-  liabilities: readonly L[],
-): LedgerSummary<A, L> {
-  const totalAssets = assets.reduce((sum, c) => sum + totalOf(c), 0);
-  const totalLiabilities = liabilities.reduce((sum, c) => sum + totalOf(c), 0);
+export function summarize(assets: readonly Entry[], liabilities: readonly Entry[]): LedgerSummary {
+  const totalAssets = totalOf(assets);
+  const totalLiabilities = totalOf(liabilities);
 
   return {
     totalAssets,
     totalLiabilities,
     netWorth: totalAssets - totalLiabilities,
     debtRatio: totalAssets > 0 ? totalLiabilities / totalAssets : 0,
-    assetShares: sharesOf(assets, totalAssets),
-    liabilityShares: sharesOf(liabilities, totalLiabilities),
+    assets: rank(assets, totalAssets),
+    liabilities: rank(liabilities, totalLiabilities),
   };
 }
 
-function sharesOf<C extends Category>(
-  categories: readonly C[],
-  total: number,
-): readonly CategoryShare<C>[] {
-  return categories.map((category) => {
-    const categoryTotal = totalOf(category);
-    return {
-      category,
-      total: categoryTotal,
-      share: total > 0 ? categoryTotal / total : 0,
-    };
-  });
+/** 降序排列并算占比。金额相同时保持配置里的先后顺序（sort 是稳定的）。 */
+function rank(entries: readonly Entry[], total: number): readonly RankedEntry[] {
+  return [...entries]
+    .sort((a, b) => b.amount - a.amount)
+    .map((entry) => ({ entry, share: total > 0 ? entry.amount / total : 0 }));
 }
 
 /**
@@ -110,64 +77,60 @@ function sharesOf<C extends Category>(
  * 所以 `pnpm build` 会跑到它 —— 配置写坏时构建失败，而不是发布一个数字错掉的页面。
  *
  * 这里只查类型系统表达不了的约束。能在类型层面拦住的（金额不是数字、
- * 槽位超出 0..4、字段漏写）不在这里重复。
+ * 字段漏写）不在这里重复。
  */
-export function assertLedgerIsSound(
-  assets: readonly (AssetCategory & { readonly id: string })[],
-  liabilities: readonly Category[],
-): void {
+export function assertLedgerIsSound(assets: readonly Entry[], liabilities: readonly Entry[]): void {
   const problems: string[] = [];
 
-  const checkSide = (side: string, categories: readonly Category[], assetSide: boolean): void => {
-    const seenIds = new Set<string>();
-    const seenSlots = new Set<number>();
-
-    for (const category of categories) {
-      const label = `${side}「${category.name}」`;
-
-      if (seenIds.has(category.id)) {
-        problems.push(`${label}的 id \`${category.id}\` 重复了 —— id 必须唯一。`);
+  const check = (side: string, entries: readonly Entry[], required: boolean): void => {
+    if (entries.length === 0) {
+      // 没有负债是完全正常的（无债一身轻）。没有资产则说明配置被清空了，
+      // 那样页面只剩一个 ¥0 和一堆空列表，几乎肯定是误操作。
+      if (required) {
+        problems.push(`${side}一条都没有 —— 这个页面至少要有一项${side}才有意义。`);
       }
-      seenIds.add(category.id);
+      return;
+    }
 
-      if (assetSide) {
-        const slot = (category as AssetCategory).colorSlot;
-        if (seenSlots.has(slot)) {
-          problems.push(
-            `${label}的 colorSlot ${slot} 已被占用 —— 同一槽位不能给两个分类，` +
-              `否则两个扇区同色，读者无法区分。`,
-          );
-        }
-        seenSlots.add(slot);
-      }
+    const seen = new Set<string>();
 
-      if (category.items.length === 0) {
-        problems.push(`${label}没有任何条目。空分类没有意义，删掉它或补上条目。`);
-      }
+    for (const entry of entries) {
+      const label = `${side}「${entry.name}」`;
 
-      for (const item of category.items) {
-        if (!Number.isFinite(item.amount)) {
-          problems.push(`${label}的条目「${item.name}」金额不是有限数字。`);
-        } else if (item.amount <= 0) {
-          problems.push(
-            `${label}的条目「${item.name}」金额是 ${item.amount} —— ` +
-              `金额必须为正数；正负由它属于资产还是负债决定，不要写负号。`,
-          );
-        }
+      if (entry.name.trim() === "") {
+        problems.push(`${side}里有一条没写名字。名字会直接显示在页面上，不能为空。`);
+      } else if (seen.has(entry.name)) {
+        problems.push(
+          `${label}出现了不止一次 —— 名字重复会让「总共多少」变得无法核对，` +
+            `React 的 key 也会冲突。同名的话请合成一条，或加个后缀区分。`,
+        );
+        seen.add(entry.name);
+      } else {
+        seen.add(entry.name);
       }
 
-      if (totalOf(category) <= 0) {
-        problems.push(`${label}的合计是 ${totalOf(category)}，必须是正数。`);
+      if (!Number.isFinite(entry.amount)) {
+        problems.push(`${label}的金额不是有限数字。`);
+      } else if (entry.amount <= 0) {
+        problems.push(
+          `${label}的金额是 ${entry.amount} —— 金额必须为正数；` +
+            `正负由它属于资产还是负债决定，不要写负号。`,
+        );
       }
+    }
+
+    if (totalOf(entries) <= 0) {
+      problems.push(`${side}的合计是 ${totalOf(entries)}，必须是正数。`);
     }
   };
 
-  checkSide("资产分类", assets, true);
-  checkSide("负债分类", liabilities, false);
+  check("资产", assets, true);
+  check("负债", liabilities, false);
 
   if (problems.length > 0) {
     throw new Error(
-      `config/assets.ts 的数据有问题，构建已中止：\n` + problems.map((p) => `  · ${p}`).join("\n"),
+      `config/assets.ts 的数据有问题，构建已中止：\n` +
+        problems.map((problem) => `  · ${problem}`).join("\n"),
     );
   }
 }

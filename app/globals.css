@@ -5,8 +5,8 @@
 
 /* ════════════════════════════════════════════════════════════════════
    Token 定义。改配色只改这一段。
-   `--series-1..5` 是图表分类色，顺序是色盲安全机制本身 —— 见 lib/palette.ts，
-   改动前先跑 dataviz skill 的 validate_palette.js，不要凭眼睛调。
+   `--asset` / `--debt` 是两极色，改之前先跑 dataviz skill 的
+   validate_palette.js 验证对比度与色盲可分辨性，不要凭眼睛调。
    ════════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -30,24 +30,25 @@
   --accent: #2a78d6;
   --accent-foreground: #ffffff;
 
-  /* 状态色固定不随主题变 —— 语义色，不是分类色。所以它们只在这里声明一次， */
-  /* 不存在于下面两个暗色块里。 */
-  --positive: #0ca30c;
-  --negative: #d03b3b;
+  /*
+    两极色：资产（冷极）/ 负债（暖极）。
+    这是「极性」编码而不是分类色 —— 资产和负债本来就是净值的一正一负两侧，
+    所以用一对冷暖对立的颜色，而不是给每个条目分一个身份色。
+    随主题变，两套值都在自己的表面上验证过对比度与色盲可分辨性。
+  */
+  --asset: #2a78d6;
+  --debt: #e34948;
 
-  /* 负债率仪表的严重度档位。浅色底下 warning / serious 对比度不足 3:1， */
-  /* 这是刻意的 —— 补偿通道是它们永远和一个文字档位标签一起出现，不靠颜色单独表意。 */
+  /*
+    负债率仪表的严重度档位。这几个是**状态色**，固定不随主题变，
+    所以只在这里声明一次，不出现在下面两个暗色块里。
+    浅色底下 warning / serious 对比度不足 3:1，这是刻意的 ——
+    补偿通道是它们永远和一个文字档位标签一起出现，不靠颜色单独表意。
+  */
   --status-good: #0ca30c;
   --status-warning: #fab219;
   --status-serious: #ec835a;
   --status-critical: #d03b3b;
-
-  /* 分类色槽（浅色模式） */
-  --series-1: #2a78d6;
-  --series-2: #eb6834;
-  --series-3: #1baf7a;
-  --series-4: #4a3aa7;
-  --series-5: #e87ba4;
 }
 
 /*
@@ -77,11 +78,8 @@
     --accent: #3987e5;
     --accent-foreground: #06121f;
 
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #199e70;
-    --series-4: #9085e9;
-    --series-5: #d55181;
+    --asset: #3987e5;
+    --debt: #e66767;
   }
 }
 
@@ -106,11 +104,8 @@
   --accent: #3987e5;
   --accent-foreground: #06121f;
 
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #199e70;
-  --series-4: #9085e9;
-  --series-5: #d55181;
+  --asset: #3987e5;
+  --debt: #e66767;
 }
 
 @theme inline {
@@ -127,8 +122,8 @@
   --color-grid: var(--grid);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-positive: var(--positive);
-  --color-negative: var(--negative);
+  --color-asset: var(--asset);
+  --color-debt: var(--debt);
 
   /*
     字体栈必须带 CJK 回退：system-ui 在部分 Linux / 容器环境没有中文字形，
@@ -193,21 +188,5 @@
     background-color: var(--card);
     border: 1px solid var(--border);
     border-radius: 1rem;
-  }
-
-  /*
-    环形图的联动高亮：hover 任一段，其余段变淡。
-    两条规则的优先级相同，靠**书写顺序**决定 —— hover 那条必须在后面。
-  */
-  .donut:hover .donut-seg {
-    opacity: 0.35;
-  }
-
-  .donut .donut-seg:hover {
-    opacity: 1;
-  }
-
-  .donut-seg {
-    transition: opacity 150ms ease-out;
   }
 }

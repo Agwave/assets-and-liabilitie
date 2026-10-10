@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 type ShareBarProps = {
   /** 占比，0..1。超出范围会被夹紧，不让它画出格子外面。 */
   readonly share: number;
-  /** 填充色，传 `seriesVar(slot)` 或 `var(--negative)` 这类 CSS 值。 */
+  /** 填充色，传 `var(--asset)` / `var(--debt)` 这类 CSS 值。 */
   readonly color: string;
   /** 轨道色。默认是同色淡化 —— 也就是「同一色阶的浅一档」，不是灰色。 */
   readonly trackColor?: string;

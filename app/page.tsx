@@ -1,14 +1,12 @@
-import { AllocationDonut, EmptyDonut } from "@/components/allocation-donut";
-import { CategoryCard } from "@/components/category-card";
 import { NetWorthPanel } from "@/components/net-worth-panel";
+import { RankingList } from "@/components/ranking-list";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Panel } from "@/components/ui/panel";
-import { assetCategories, liabilityCategories } from "@/config/assets";
+import { assets, liabilities } from "@/config/assets";
 import { profile } from "@/config/profile";
 import { formatCNY } from "@/lib/format";
 import { summarize } from "@/lib/ledger";
-import { seriesVar } from "@/lib/palette";
 
 /**
  * 唯一的页面。全服务端渲染，构建期就生成好静态 HTML。
@@ -38,7 +36,7 @@ function SectionHeading({
 }
 
 export default function Page() {
-  const summary = summarize(assetCategories, liabilityCategories);
+  const summary = summarize(assets, liabilities);
 
   return (
     <>
@@ -46,68 +44,51 @@ export default function Page() {
       <div aria-hidden="true" className="tech-glow pointer-events-none fixed inset-0 -z-10" />
       <div aria-hidden="true" className="tech-grid pointer-events-none fixed inset-0 -z-10" />
 
-      <div className="mx-auto flex w-full max-w-6xl flex-col px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-5xl flex-col px-4 sm:px-6 lg:px-8">
         <SiteHeader profile={profile} />
 
         <main className="flex flex-col gap-12">
-          {/* ── 总览：净资产 + 资产结构 ─────────────────────────── */}
-          <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-            <NetWorthPanel summary={summary} />
-
-            <Panel className="flex flex-col gap-6 p-6">
-              <div className="flex flex-col gap-1">
-                <h2 className="text-sm font-semibold tracking-wide">资产结构</h2>
-                <p className="text-xs text-faint-foreground">
-                  扇区顺序与配色固定绑定分类，不随金额大小重排
-                </p>
-              </div>
-
-              {summary.assetShares.length >= 2 ? (
-                <AllocationDonut shares={summary.assetShares} total={summary.totalAssets} />
-              ) : (
-                <EmptyDonut />
-              )}
-            </Panel>
-          </section>
+          {/* ── 总览：净资产 + 三个汇总指标 ────────────────────── */}
+          <NetWorthPanel
+            summary={summary}
+            assetCount={summary.assets.length}
+            liabilityCount={summary.liabilities.length}
+          />
 
           {/* ── 资产明细 ──────────────────────────────────────── */}
           <section className="flex flex-col gap-5">
             <SectionHeading
-              title="资产明细"
-              description="条形长度 = 该条目占「总资产」的比例，与卡片条同一口径"
+              title="资产"
+              description="按金额从大到小。条长 = 该项占总资产的比例"
               total={summary.totalAssets}
             />
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {summary.assetShares.map(({ category, total }) => (
-                <CategoryCard
-                  key={category.id}
-                  category={category}
-                  total={total}
-                  grandTotal={summary.totalAssets}
-                  color={seriesVar(category.colorSlot)}
-                />
-              ))}
-            </div>
+            <Panel className="p-5 sm:p-6">
+              <RankingList
+                rows={summary.assets}
+                total={summary.totalAssets}
+                color="var(--asset)"
+                sideName="资产"
+                emptyHint="还没有登记任何资产。在 config/assets.ts 里加几条即可。"
+              />
+            </Panel>
           </section>
 
           {/* ── 负债明细 ──────────────────────────────────────── */}
           <section className="flex flex-col gap-5">
             <SectionHeading
-              title="负债明细"
-              description="条形长度 = 该条目占「总负债」的比例。负债是同一类东西，所以只用一种颜色，不按分类上色"
+              title="负债"
+              description="按金额从大到小。条长 = 该笔占总负债的比例"
               total={summary.totalLiabilities}
             />
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {summary.liabilityShares.map(({ category, total }) => (
-                <CategoryCard
-                  key={category.id}
-                  category={category}
-                  total={total}
-                  grandTotal={summary.totalLiabilities}
-                  color="var(--negative)"
-                />
-              ))}
-            </div>
+            <Panel className="p-5 sm:p-6">
+              <RankingList
+                rows={summary.liabilities}
+                total={summary.totalLiabilities}
+                color="var(--debt)"
+                sideName="负债"
+                emptyHint="当前没有任何负债。"
+              />
+            </Panel>
           </section>
         </main>
 
