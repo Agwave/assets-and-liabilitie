@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="资产看板">
+  <rect width="32" height="32" rx="7" fill="#0e131c" />
+  <!--
+    图标沿用页面的环形图母题：一段占约 72% 的主色弧 + 一段次色弧，
+    中间留出圆心。16px 下缩小成一枚带缺口的小环，仍然认得出。
+  -->
+  <g transform="translate(16 16) rotate(-90)" fill="none" stroke-width="4.5">
+    <circle r="7.5" stroke="#1c2431" />
+    <circle r="7.5" stroke="#3987e5" stroke-dasharray="33.9 47.1" stroke-linecap="butt" />
+    <circle r="7.5" stroke="#199e70" stroke-dasharray="10.6 70.4" stroke-dashoffset="-34.9" stroke-linecap="butt" />
+  </g>
+</svg>

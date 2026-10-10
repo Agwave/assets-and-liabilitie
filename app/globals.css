@@ -1,0 +1,213 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ════════════════════════════════════════════════════════════════════
+   Token 定义。改配色只改这一段。
+   `--series-1..5` 是图表分类色，顺序是色盲安全机制本身 —— 见 lib/palette.ts，
+   改动前先跑 dataviz skill 的 validate_palette.js，不要凭眼睛调。
+   ════════════════════════════════════════════════════════════════════ */
+
+:root {
+  color-scheme: light;
+
+  --background: #f4f6f9;
+  --foreground: #0d1117;
+
+  --card: #ffffff;
+  --card-foreground: #0d1117;
+  --card-raised: #fbfcfe;
+
+  --muted: #eef1f6;
+  --muted-foreground: #55606f;
+  --faint-foreground: #7c8798;
+
+  --border: rgb(13 17 23 / 0.1);
+  --border-strong: rgb(13 17 23 / 0.16);
+  --grid: #e6e9ef;
+
+  --accent: #2a78d6;
+  --accent-foreground: #ffffff;
+
+  /* 状态色固定不随主题变 —— 语义色，不是分类色。所以它们只在这里声明一次， */
+  /* 不存在于下面两个暗色块里。 */
+  --positive: #0ca30c;
+  --negative: #d03b3b;
+
+  /* 负债率仪表的严重度档位。浅色底下 warning / serious 对比度不足 3:1， */
+  /* 这是刻意的 —— 补偿通道是它们永远和一个文字档位标签一起出现，不靠颜色单独表意。 */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  /* 分类色槽（浅色模式） */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #4a3aa7;
+  --series-5: #e87ba4;
+}
+
+/*
+  暗色两处声明是刻意的：媒体查询兜住「关掉 JS / 首屏未水合」时跟随系统偏好，
+  下面的 .dark 类由 next-themes 写进 <html>，让手动开关能压过系统偏好。
+  改配色时**两块都要改**。
+*/
+@media (prefers-color-scheme: dark) {
+  :root:where(:not(.light)) {
+    color-scheme: dark;
+
+    --background: #080b12;
+    --foreground: #e8edf5;
+
+    --card: #0e131c;
+    --card-foreground: #e8edf5;
+    --card-raised: #131a25;
+
+    --muted: #161d28;
+    --muted-foreground: #98a4b8;
+    --faint-foreground: #6b7689;
+
+    --border: rgb(255 255 255 / 0.08);
+    --border-strong: rgb(255 255 255 / 0.14);
+    --grid: #1c2431;
+
+    --accent: #3987e5;
+    --accent-foreground: #06121f;
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #9085e9;
+    --series-5: #d55181;
+  }
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: #080b12;
+  --foreground: #e8edf5;
+
+  --card: #0e131c;
+  --card-foreground: #e8edf5;
+  --card-raised: #131a25;
+
+  --muted: #161d28;
+  --muted-foreground: #98a4b8;
+  --faint-foreground: #6b7689;
+
+  --border: rgb(255 255 255 / 0.08);
+  --border-strong: rgb(255 255 255 / 0.14);
+  --grid: #1c2431;
+
+  --accent: #3987e5;
+  --accent-foreground: #06121f;
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #9085e9;
+  --series-5: #d55181;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-card-raised: var(--card-raised);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-faint-foreground: var(--faint-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-grid: var(--grid);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+
+  /*
+    字体栈必须带 CJK 回退：system-ui 在部分 Linux / 容器环境没有中文字形，
+    删掉后面那串中文页会变成一片豆腐块。这是踩过的坑，不要"顺手精简"。
+  */
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+
+  /*
+    大号独立数字用比例字形：tabular-nums 会把每个数字都撑成 `0` 的宽度，
+    「121」这类数字在标题尺寸下会显得松散。只给需要纵向对齐的列用。
+  */
+  th,
+  td,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  /*
+    背景拆成两层：辉光在上、网格在下，各自一个 fixed 元素。
+    分层的理由是遮罩只能整层加 —— 网格要向下淡出，辉光不该被裁掉。
+    两层都 pointer-events-none，纯装饰，不参与交互也不进无障碍树。
+  */
+  .tech-glow {
+    background-image: radial-gradient(
+      ellipse 70% 45% at 50% -10%,
+      color-mix(in oklab, var(--accent) 14%, transparent),
+      transparent 70%
+    );
+  }
+
+  .tech-grid {
+    background-image:
+      linear-gradient(to right, var(--grid) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+    background-size: 64px 64px;
+    -webkit-mask-image: linear-gradient(to bottom, black, transparent 85%);
+    mask-image: linear-gradient(to bottom, black, transparent 85%);
+  }
+
+  /* 卡片：一层比背景略亮的表面 + 一圈发丝边框 */
+  .panel {
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+  }
+
+  /*
+    环形图的联动高亮：hover 任一段，其余段变淡。
+    两条规则的优先级相同，靠**书写顺序**决定 —— hover 那条必须在后面。
+  */
+  .donut:hover .donut-seg {
+    opacity: 0.35;
+  }
+
+  .donut .donut-seg:hover {
+    opacity: 1;
+  }
+
+  .donut-seg {
+    transition: opacity 150ms ease-out;
+  }
+}

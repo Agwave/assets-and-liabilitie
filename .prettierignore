@@ -1,0 +1,12 @@
+# 构建产物
+.next
+out
+build
+node_modules
+
+# 锁文件由包管理器负责，不要格式化
+pnpm-lock.yaml
+
+# 生成物
+next-env.d.ts
+*.tsbuildinfo
