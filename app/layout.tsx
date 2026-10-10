@@ -2,13 +2,13 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
 import { ThemeProvider } from "@/components/theme-provider";
-import { profile } from "@/config/profile";
+import { getLedgerConfig } from "@/lib/config";
 
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: profile.name,
-  description: profile.subtitle,
+  title: getLedgerConfig().profile.name,
+  description: getLedgerConfig().profile.subtitle,
   // 个人财务页面不该被搜索引擎收录，也不该在社交平台展开成卡片
   robots: { index: false, follow: false },
 };

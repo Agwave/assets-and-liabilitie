@@ -3,8 +3,7 @@ import { RankingList } from "@/components/ranking-list";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { Panel } from "@/components/ui/panel";
-import { assets, liabilities } from "@/config/assets";
-import { profile } from "@/config/profile";
+import { getLedgerConfig } from "@/lib/config";
 import { formatCNY } from "@/lib/format";
 import { summarize } from "@/lib/ledger";
 
@@ -36,6 +35,7 @@ function SectionHeading({
 }
 
 export default function Page() {
+  const { profile, assets, liabilities } = getLedgerConfig();
   const summary = summarize(assets, liabilities);
 
   return (

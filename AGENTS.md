@@ -3,7 +3,9 @@
 这是一个**只读展示**的个人资产负债表：数据全部来自配置文件，页面没有任何编辑入口、
 没有数据库、没有接口。技术栈 Next.js（App Router）+ Tailwind v4 + shadcn/ui 约定。
 
-数据是**平铺**的：一条记录就是一个名字 + 一个金额，没有二级分类。
+数据在 `config/assets.yaml`（**被 gitignore，不进仓库**），模板是
+`config/assets.example.yaml`。结构是**平铺**的：一条记录就是一个名字 + 一个金额，
+没有二级分类。
 
 ## 1. 每次改完代码，必须依次完成以下检查（禁止跳过）
 
@@ -19,15 +21,31 @@ pnpm build          # 3. 类型检查 + 静态生成（构建期还会跑配置�
   类名顺序由 `prettier-plugin-tailwindcss` 决定，手排的会被重排回去。
 - `pnpm lint` 必须修到 **0 error**。想加 `eslint-disable` 前先确认那是不是真问题：
   见下面「本仓库的坑」里 `set-state-in-effect` 那条，那个是真问题。
-- `pnpm build` 同时承担 TypeScript 类型检查。本仓库把业务约束放进了类型系统，
-  所以它失败时往往**不是「构建坏了」，而是「数据写错了」**：
-  - 金额写成字符串 / 漏字段 → `Entry` 类型拦住
-  - `config/assets.ts` 里的数字本身不合法 → 构建期体检抛错，见下条
+- `pnpm build` 同时承担 TypeScript 类型检查**和配置校验**。所以它失败时往往
+  **不是「构建坏了」，而是「数据写错了」**：
+  - 组件之间传错类型 → TypeScript 拦住
+  - 配置写错（字段名拼错、金额带逗号、重名）→ `lib/config.ts` 拦住，见下条
 
-### 构建期体检
+### 构建期体检（**配置是 YAML，所以这层校验是必需品而不是装饰**）
 
-`config/assets.ts` 末尾调用了 `assertLedgerIsSound()`，它在**模块加载时**执行，
-所以 `pnpm build` 会跑到。以下数据问题会让构建**直接失败**，并指出是哪一个条目：
+配置从 TypeScript 换成 YAML 之后，**编辑器不再帮你检查字段名了**。而且 YAML 有好几个
+会静默出错的写法 —— `amout:` 少打一个字母不会报错，只会给出一条 `amount` 为
+`undefined` 的记录；`1,600,000` 会被解析成**字符串**。这些都会一路飘到汇总数字里
+才暴露。所以 `lib/config.ts` 的校验不是可选的装饰，它是换掉类型系统之后补上的那个洞。
+
+校验分两层，`pnpm build` 会跑到：
+
+**第一层：形状**（`lib/config.ts`）—— 字段名、类型、结构
+
+| 拦住的错误                       | 为什么必须在构建期拦                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------------------- |
+| 不认识的字段（如 `amout`）       | 拼错键名会静默变 `undefined`，是 YAML 最危险的失败模式。会顺便猜你本来想写哪个        |
+| `amount` 是字符串                | `1,600,000` / `1_600_000` / `"¥85000"` 都会被 YAML 当字符串。报错里直接给出该写成什么 |
+| 顶层字段不对 / `assets` 不是列表 | 结构错了，后面的检查没有意义                                                          |
+| 缺 `profile` 的某个字段          | 页头会渲染出 `undefined`                                                              |
+| 配置文件不存在                   | 被 gitignore 了，新克隆必须 `cp` 一份。报错里直接给出那条 `cp` 命令                   |
+
+**第二层：业务规则**（`lib/ledger.ts` 的 `collectLedgerProblems`）
 
 | 拦住的错误            | 为什么必须在构建期拦                               |
 | --------------------- | -------------------------------------------------- |
@@ -37,6 +55,10 @@ pnpm build          # 3. 类型检查 + 静态生成（构建期还会跑配置�
 | 资产一条都没有        | 页面只剩一个 ¥0 和空列表，几乎肯定是误操作         |
 
 **负债为空是允许的**（无债一身轻），页面显示空态而不是报错。
+
+两层是分开报的：形状不对时数据还不是 `Entry[]` 的样子，跑规则检查会给出误导性结果。
+所以先把形状问题全报完，改对了才会看到规则问题。**每一层内部都是一次报全**，
+不会让你改一个跑一次。
 
 这是刻意设计的失败：**宁可构建报错，也不要发布一个数字悄悄错掉的资产页。**
 
@@ -48,17 +70,17 @@ pnpm build          # 3. 类型检查 + 静态生成（构建期还会跑配置�
 
 **核心模块**（对应本仓库实际目录）：
 
-| 模块       | 对应位置                                                          | 职责                             |
-| ---------- | ----------------------------------------------------------------- | -------------------------------- |
-| `config`   | `config/assets.ts`、`config/profile.ts`                           | 数据源与站点身份                 |
-| `data`     | `lib/ledger.ts`                                                   | 类型、汇总计算、排序、构建期体检 |
-| `format`   | `lib/format.ts`                                                   | 人民币格式化与百分比             |
-| `charts`   | `components/ranking-list.tsx`、`app/globals.css`                  | 条形榜与两极色                   |
-| `sections` | `components/net-worth-panel.tsx`、`site-*.tsx`                    | 页面各区块                       |
-| `ui`       | `components/ui/`、`app/globals.css`                               | 卡片、占比条、主题 token         |
-| `theme`    | `components/theme-provider.tsx`、`theme-toggle.tsx`、`hooks/`     | 明暗切换                         |
-| `page`     | `app/page.tsx`、`app/layout.tsx`、`app/robots.ts`、`app/icon.svg` | 页面组装与元信息                 |
-| `build`    | `package.json`、`eslint.config.mjs`、`.prettierrc.json`           | 工具链配置                       |
+| 模块       | 对应位置                                                          | 职责                               |
+| ---------- | ----------------------------------------------------------------- | ---------------------------------- |
+| `config`   | `config/assets.example.yaml`、`lib/config.ts`                     | 模板、YAML 读取与字段校验          |
+| `data`     | `lib/ledger.ts`                                                   | 类型、汇总计算、排序、业务规则体检 |
+| `format`   | `lib/format.ts`                                                   | 人民币格式化与百分比               |
+| `charts`   | `components/ranking-list.tsx`、`app/globals.css`                  | 条形榜与两极色                     |
+| `sections` | `components/net-worth-panel.tsx`、`site-*.tsx`                    | 页面各区块                         |
+| `ui`       | `components/ui/`、`app/globals.css`                               | 卡片、占比条、主题 token           |
+| `theme`    | `components/theme-provider.tsx`、`theme-toggle.tsx`、`hooks/`     | 明暗切换                           |
+| `page`     | `app/page.tsx`、`app/layout.tsx`、`app/robots.ts`、`app/icon.svg` | 页面组装与元信息                   |
+| `build`    | `package.json`、`eslint.config.mjs`、`.prettierrc.json`           | 工具链配置                         |
 
 **规则**：
 
@@ -121,8 +143,9 @@ pnpm build          # 3. 类型检查 + 静态生成（构建期还会跑配置�
 ### 本仓库没有测试框架
 
 **刻意不引入。** 这个站点是纯静态展示，绝大部分逻辑是「把配置渲染成 HTML」，
-为它搭测试框架的收益低于维护成本。**类型系统 + 构建期体检承担了测试的职责**：
-`pnpm build` 会拦住漏字段、非法金额、重名等大多数真实错误。
+为它搭测试框架的收益低于维护成本。**类型系统 + 构建期配置校验承担了测试的职责**：
+`pnpm build` 会拦住字段拼错、非法金额、重名等大多数真实错误 ——
+只是校验从编译期挪到了构建期（配置是 YAML，编译期管不到它）。
 
 **因此下列行为没有自动化覆盖，改动相关代码后必须人工验证**：
 
@@ -262,9 +285,23 @@ done; done
   镜像是它两倍多）。注意 `create-next-app` 会拒绝在含 `.npmrc` 的目录里脚手架。
 - **`pnpm <script>` 偶尔会解析失败**（报 `ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL`），
   加 `run` 就好：`pnpm run format`。写脚本时用 `pnpm run` 更稳。
-- **构建期体检不要在 `next.config.ts` 里做，要在 config 模块加载时做。**
-  现在这样任何入口（build / dev / 单独的 node 脚本）导入配置都会触发，
+- **构建期体检不要在 `next.config.ts` 里做，要在 `lib/config.ts` 里做。**
+  那样任何入口（build / dev / 单独的 node 脚本）只要读到配置就会触发，
   放在 next.config 里只有构建才跑得到。
+- **`getLedgerConfig()` 的 mtime 缓存是 dev 体验的必需品，不要「优化」掉。**
+  YAML 是用 `fs` 读的，**不在 Turbopack 的模块图里** —— 改它不会触发重编译。
+  早先的写法是在模块加载时读一次并缓存成常量，结果是改完配置刷新页面看到的
+  还是旧数字，必须重启 dev server 才生效。那种「改了没反应」极容易被误判成
+  代码有 bug，所以现在每次渲染都 `stat` 一下，只有 mtime 变了才重新解析。
+  改成 `export const ledgerConfig = loadLedgerConfig()` 会把这个坑带回来。
+- **`config/assets.yaml` 必须留在 `.gitignore` 里。** 里面是真实的个人财务数据。
+  仓库里提交的是 `config/assets.example.yaml`。代价是从仓库部署时构建机会读不到它 ——
+  部署方式见 README 的「部署」一节。删掉这条 ignore 之前先想清楚这一点。
+- **YAML 有几个会静默出错的写法**，这也是 `lib/config.ts` 那层校验存在的理由：
+  `1,600,000` 和 `1_600_000` 都会被解析成**字符串**（下划线是 JS 的写法，YAML 不认）；
+  值里的半角冒号会让整份文件解析失败（`name: 招商银行: 活期` 要加引号）；
+  拼错的键名（`amout:`）不会有任何提示。加新字段时，校验里的
+  `ENTRY_KEYS` / `PROFILE_KEYS` 必须同步加，否则合法字段会被当成拼写错误拒掉。
 
 <!-- BEGIN:nextjs-agent-rules -->
 

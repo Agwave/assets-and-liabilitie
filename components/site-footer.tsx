@@ -1,4 +1,4 @@
-import type { Profile } from "@/config/profile";
+import type { Profile } from "@/lib/ledger";
 
 export function SiteFooter({ profile }: { readonly profile: Profile }) {
   return (

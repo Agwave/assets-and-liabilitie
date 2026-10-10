@@ -1,6 +1,6 @@
 import { ThemeToggle } from "@/components/theme-toggle";
 import { formatDate } from "@/lib/format";
-import type { Profile } from "@/config/profile";
+import type { Profile } from "@/lib/ledger";
 
 export function SiteHeader({ profile }: { readonly profile: Profile }) {
   return (

@@ -35,6 +35,11 @@ yarn-error.log*
 # …but templates must be committed — `.env*` would otherwise swallow them.
 !.env.example
 
+# 真实资产数据不进仓库 —— 这是个人的财务信息。
+# 模板 config/assets.example.yaml 是提交的，新克隆先复制一份再改：
+#     cp config/assets.example.yaml config/assets.yaml
+/config/assets.yaml
+
 # vercel
 .vercel
 

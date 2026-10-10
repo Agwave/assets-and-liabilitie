@@ -1,7 +1,7 @@
 # 个人资产负债看板
 
-一个**只读**的个人资产 / 负债展示页。数据全部来自配置文件 —— 页面没有编辑入口、
-没有数据库、没有接口、没有登录。改数据 = 改一个 TypeScript 文件 + 重新构建。
+一个**只读**的个人资产 / 负债展示页。数据全部来自一份 YAML —— 页面没有编辑入口、
+没有数据库、没有接口、没有登录。改数据 = 改一个 YAML + 重新构建。
 
 - Next.js（App Router，静态生成）+ Tailwind v4 + shadcn/ui 约定
 - 手机和电脑双端自适应，深色 / 浅色 / 跟随系统三态
@@ -11,62 +11,106 @@
 
 ```bash
 pnpm install
-pnpm dev            # http://localhost:3000
+cp config/assets.example.yaml config/assets.yaml   # 首次必须做，否则构建会报错
+pnpm dev                                           # http://localhost:3000
 ```
 
 ## 改成你自己的数据
 
-**只需要动 `config/assets.ts` 这一个文件。** 里面现在是占位示例。
+**只改 `config/assets.yaml` 这一个文件。**
+
+### 为什么它不在 git 里
+
+`config/assets.yaml` 被 `.gitignore` 排除了 —— 里面是你真实的资产数据，
+不该进仓库。仓库里提交的是模板 `config/assets.example.yaml`。
+新克隆之后先复制一份：
+
+```bash
+cp config/assets.example.yaml config/assets.yaml
+```
+
+没复制就构建的话，会直接报错并告诉你这条命令：
+
+```
+Error: 找不到 config/assets.yaml，构建已中止。
+
+  这个文件被 .gitignore 排除了 —— 里面是你的真实资产数据，不该进仓库。
+  从模板复制一份再改：
+
+      cp config/assets.example.yaml config/assets.yaml
+```
+
+### 文件长什么样
 
 结构是平铺的：一条记录 = 一个名字 + 一个金额，没有二级分类。
 
-```ts
-import { assertLedgerIsSound, type Entry } from "@/lib/ledger";
+```yaml
+profile:
+  name: 个人资产看板
+  subtitle: 资产与负债的静态快照
+  asOf: "2026-10-01"
+  note: 数据来自手工记账快照。
 
-export const assets = [
-  { name: "自住房", amount: 1_600_000, note: "按 2026-08 同小区成交价估值" },
-  { name: "沪深 300 指数基金", amount: 180_000 },
-  { name: "招商银行 · 活期", amount: 85_000 },
-] as const satisfies readonly Entry[];
+assets:
+  - name: 自住房
+    amount: 1600000
+    note: 按 2026-08 同小区成交价估值
+  - name: 招商银行 · 活期
+    amount: 85000
 
-export const liabilities = [
-  { name: "住房商业贷款", amount: 980_000, note: "年利率 3.1%，剩余 18 年" },
-] as const satisfies readonly Entry[];
-
-assertLedgerIsSound(assets, liabilities);
+liabilities:
+  - name: 住房商业贷款
+    amount: 980000
+    note: 年利率 3.1%，剩余 18 年
 ```
 
-三条规矩：
+### 三条规矩
 
-1. **金额一律写正数**，单位是元。房贷写 `980000`，不是 `-980000` ——
-   正负由它放在 `assets` 还是 `liabilities` 决定。
-2. **同一侧里名字不能重复**（重名会让「总共多少」没法核对）。
-3. 顺序随便写，页面会按金额从大到小自己排。改完记得更新 `config/profile.ts`
-   里的 `asOf`（页头会显示「数据截至 …」）。
+1. **金额写正数**，单位是元。房贷写 `980000`，不是 `-980000` ——
+   正负由它放在 `assets` 还是 `liabilities` 下面决定。
+2. **金额不要带千分位逗号、下划线、引号或 ¥ 符号**，直接写 `1600000`。
+   YAML 会把 `1,600,000` 和 `1_600_000` 当成**字符串**而不是数字
+   （下划线是 JS 的写法，YAML 不认）。
+3. **同一侧里名字不能重复。**
 
-`note` 是可选的，会显示在条目名下方，适合写「年化 2.6%」「按 2026-08 估值」这类口径。
+顺序随便写，页面会按金额从大到小自己排。
 
-**负债一条都没有也完全正常**，页面会显示空态。资产不能为空。
+### 其他
 
-写错了不会静默出错 —— `pnpm build` 会直接失败并指出是哪个条目：
+- `note` 是可选的，显示在名字下面，适合写「年化 2.6%」「按 2026-08 估值」这类口径。
+- **`assets` 不能为空；`liabilities` 可以一条都没有**（那就是无负债，页面显示空态）。
+- 值里含半角冒号或 `#` 要用引号包起来：`name: "招商银行: 活期"`。
+- 改 `asOf` 别忘了 —— 页头会显示「数据截至 …」。
+
+### 写错了会怎样
+
+不会静默出错。**字段名拼错、类型不对、金额带逗号，构建期全部拦下来**，
+并且一次性把所有问题报全，而不是让你改一个跑一次：
 
 ```
-Error: config/assets.ts 的数据有问题，构建已中止：
-  · 资产「债券基金」的金额是 -60000 —— 金额必须为正数；
-    正负由它属于资产还是负债决定，不要写负号。
+Error: config/assets.yaml 的内容有问题（共 3 处），构建已中止：
+  · 资产 第 2 条的 amount 是字符串 "1,600,000" —— YAML 里数字不能带千分位逗号、
+    下划线或引号，它们会让整串变成字符串。去掉分隔符，写成 1600000。
+  · 资产 第 4 条有一个不认识的字段 `amout`，是不是想写 `amount`？
+    可用的字段只有 name / amount / note。
+  · 资产 第 5 条的 amount 是 -30000 —— 金额必须为正数；正负由它放在 assets
+    还是 liabilities 下面决定，不要写负号。如果这项已经还清或归零，请整条删掉。
 ```
+
+开发时改完 `config/assets.yaml` **刷新页面就行，不用重启 dev server**。
 
 ## 目录结构
 
 ```
-config/assets.ts        ← 数据源。改数据只改这里
-config/profile.ts       ← 名字、副标题、数据截止日期、页脚备注
-lib/ledger.ts           ← 类型、汇总计算、排序、构建期体检
-lib/format.ts           ← 人民币格式化
+config/assets.example.yaml  ← 模板，进 git
+config/assets.yaml          ← 你的真实数据，被 .gitignore 排除
+lib/config.ts               ← 读 YAML + 校验字段名/类型，坏配置在构建期报错
+lib/ledger.ts               ← 类型、汇总计算、排序、业务规则体检
+lib/format.ts               ← 人民币格式化
 components/ranking-list.tsx    ← 条形榜（资产和负债共用）
 components/net-worth-panel.tsx ← 净资产 hero + 统计卡 + 负债率仪表
 components/ui/                 ← 手写的卡片和占比条，没有 "use client"
-app/page.tsx            ← 唯一的页面，组装以上所有
+app/page.tsx                ← 唯一的页面，组装以上所有
 ```
 
 ## 命令
@@ -119,7 +163,15 @@ HTML」，为它搭测试框架的收益低于维护成本。类型系统 + 构�
 标准的 Next.js 静态站点，Vercel 直接导入即可。产物也能导出成纯静态文件（`out/`）丢到
 任何静态托管，但因为目前没有用到任何服务端能力，两种方式行为完全一致。
 
-环境变量：**没有**。不存在 `.env` 文件，也不需要在部署平台配任何东西。
+**注意：`config/assets.yaml` 不在 git 里，所以从仓库部署时构建机会找不到它而失败。**
+按仓库公开程度选一种：
+
+| 情况                 | 做法                                                                                                                                                                             |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 仓库私有，只有自己看 | `git add -f config/assets.yaml` 强制加进去（`-f` 是因为它被 gitignore 了）                                                                                                       |
+| 仓库公开             | 别提交。改用构建前的环境变量或部署平台的「构建命令」把内容写进去，例如把 YAML 存成环境变量 `ASSETS_YAML`，构建命令设为 `printenv ASSETS_YAML > config/assets.yaml && pnpm build` |
+
+无论哪种，**构建期读的，不是运行期读的** —— 全站静态生成，改了配置必须重新部署才生效。
 
 ## 已知限制
 
