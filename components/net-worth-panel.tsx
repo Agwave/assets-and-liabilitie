@@ -30,13 +30,13 @@ type TileProps = {
 function StatTile({ label, value, color, Icon, hint }: TileProps) {
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-border bg-card-raised p-4">
-      <div className="flex items-center gap-1.5 text-xs text-faint-foreground">
+      <div className="flex items-center gap-1.5 text-sm text-faint-foreground">
         {/* 图标 + 文字标签成对出现，颜色从不单独表意 */}
-        <Icon aria-hidden="true" className="size-3.5" style={{ color }} />
+        <Icon aria-hidden="true" className="size-4" style={{ color }} />
         <span>{label}</span>
       </div>
-      <span className="text-lg font-semibold tabular-nums">{formatCNY(value)}</span>
-      <span className="text-[11px] text-faint-foreground">{hint}</span>
+      <span className="text-xl font-semibold tabular-nums">{formatCNY(value)}</span>
+      <span className="text-xs text-faint-foreground">{hint}</span>
     </div>
   );
 }
@@ -64,7 +64,7 @@ export function NetWorthPanel({ summary, assetCount, liabilityCount }: Props) {
   return (
     <div className="panel flex flex-col gap-6 p-6 sm:p-8">
       <div className="flex flex-col gap-3">
-        <span className="text-xs tracking-widest text-faint-foreground">净资产</span>
+        <span className="text-sm tracking-widest text-faint-foreground">净资产</span>
 
         {/*
           全页唯一的 hero 数字，用比例字形。
@@ -77,7 +77,7 @@ export function NetWorthPanel({ summary, assetCount, liabilityCount }: Props) {
           {formatCNY(netWorth)}
         </p>
 
-        <p className="text-sm text-muted-foreground tabular-nums">
+        <p className="text-base text-muted-foreground tabular-nums">
           总资产 {formatCNY(totalAssets)} − 总负债 {formatCNY(totalLiabilities)}
         </p>
       </div>
@@ -99,19 +99,19 @@ export function NetWorthPanel({ summary, assetCount, liabilityCount }: Props) {
         />
 
         <div className="flex flex-col gap-2 rounded-xl border border-border bg-card-raised p-4">
-          <div className="flex items-center gap-1.5 text-xs text-faint-foreground">
+          <div className="flex items-center gap-1.5 text-sm text-faint-foreground">
             <span
               aria-hidden="true"
-              className="size-3.5 rounded-full"
+              className="size-4 rounded-full"
               style={{ backgroundColor: level.color }}
             />
             <span>负债率</span>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-lg font-semibold tabular-nums">
+            <span className="text-xl font-semibold tabular-nums">
               {formatPercent(totalLiabilities, totalAssets)}
             </span>
-            <span className="text-xs text-muted-foreground">{level.label}</span>
+            <span className="text-sm text-muted-foreground">{level.label}</span>
           </div>
           <ShareBar share={debtRatio} color={level.color} height="sm" className="mt-auto" />
         </div>

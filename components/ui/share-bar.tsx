@@ -11,10 +11,11 @@ type ShareBarProps = {
   readonly className?: string;
 };
 
+/** 三档厚度，单位是 Tailwind 的间距单位（1 = 4px）。最粗一档远低于 24px 上限。 */
 const HEIGHTS = {
-  sm: "h-1.5",
-  md: "h-2",
-  lg: "h-2.5",
+  sm: "h-2.5",
+  md: "h-3",
+  lg: "h-4",
 } as const;
 
 /**

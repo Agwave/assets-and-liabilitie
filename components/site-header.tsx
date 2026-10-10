@@ -12,12 +12,12 @@ export function SiteHeader({ profile }: { readonly profile: Profile }) {
             aria-hidden="true"
             className="size-2 rounded-full bg-accent shadow-[0_0_12px_var(--accent)]"
           />
-          <h1 className="text-lg font-semibold tracking-tight">{profile.name}</h1>
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{profile.name}</h1>
         </div>
 
-        <p className="text-sm text-muted-foreground">{profile.subtitle}</p>
+        <p className="text-base text-muted-foreground">{profile.subtitle}</p>
 
-        <p className="text-xs text-faint-foreground">数据截至 {formatDate(profile.asOf)}</p>
+        <p className="text-sm text-faint-foreground">数据截至 {formatDate(profile.asOf)}</p>
       </div>
 
       <ThemeToggle />
