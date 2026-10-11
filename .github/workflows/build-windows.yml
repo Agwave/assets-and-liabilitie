@@ -37,10 +37,11 @@ jobs:
       - name: 装前端依赖
         run: pnpm install --frozen-lockfile
 
-      # 这一步会跑到 scripts/build-desktop.mjs：
-      # 先 next build 出 out/，再删掉其中的 ledger.yaml。
+      # pnpm desktop:build 就是 tauri build，它会先跑 beforeBuildCommand
+      # （scripts/build-desktop.mjs：next build 出 out/，再删掉其中的 ledger.json），
+      # 然后 cargo build 把前端资源嵌进 exe。
       # 仓库里没有 config/assets.yaml（被 gitignore），所以构建机本来就碰不到你的数据，
-      # 这一步是给本地构建也兜一层底。
+      # 删副本那一步是给本地构建也兜一层底。
       - name: 构建安装包
         run: pnpm desktop:build
 
