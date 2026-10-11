@@ -39,8 +39,8 @@ struct LedgerFile {
     is_template: bool,
 }
 
-/// `%APPDATA%\assets-ledger\`（Windows）/ `~/.config/assets-ledger/`（其他平台）
-fn base_dir() -> PathBuf {
+/// 备用位置：`%APPDATA%\assets-ledger\`（Windows）/ `~/.config/assets-ledger/`（其他平台）
+fn appdata_dir() -> PathBuf {
     if let Ok(appdata) = std::env::var("APPDATA") {
         PathBuf::from(appdata).join(APP_DIR)
     } else if let Ok(home) = std::env::var("HOME") {
@@ -50,8 +50,32 @@ fn base_dir() -> PathBuf {
     }
 }
 
+/// 配置文件所在目录。
+///
+/// **发布版就放在 exe 旁边** —— 装完一个文件夹里既有程序又有配置，拷走整个文件夹就能用，
+/// 用户也不用去别的目录找。
+///
+/// 能这么放的前提是安装模式为 `currentUser`（见 `tauri.conf.json` 的
+/// `bundle.windows.nsis.installMode`）：那样程序装在 `%LOCALAPPDATA%` 下面，
+/// **当前用户可写**，改配置不需要管理员权限。要是改成 `perMachine`（装进
+/// Program Files），这里就写不进去了 —— 改那个配置项之前先想清楚这一点。
+///
+/// **调试版仍然用 `%APPDATA%`**：否则配置会被写进 `target/debug/`，
+/// 一次 `cargo clean` 就没了，调试起来很别扭。
+fn config_dir() -> PathBuf {
+    if !cfg!(debug_assertions) {
+        if let Some(dir) = std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(Path::to_path_buf))
+        {
+            return dir;
+        }
+    }
+    appdata_dir()
+}
+
 fn config_path() -> PathBuf {
-    base_dir().join(CONFIG_FILE)
+    config_dir().join(CONFIG_FILE)
 }
 
 #[tauri::command]
@@ -99,7 +123,7 @@ fn create_config_from_template() -> Result<String, LedgerError> {
 /// 用系统文件管理器打开配置目录。目录不存在就先建出来（空目录也比报错好）。
 #[tauri::command]
 fn open_config_folder() -> Result<(), LedgerError> {
-    let dir = base_dir();
+    let dir = config_dir();
 
     fs::create_dir_all(&dir).map_err(|error| LedgerError::Io {
         message: format!("创建目录 {} 失败：{error}", dir.display()),
