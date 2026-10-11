@@ -3,9 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/prepare-web-data.mjs && next build",
+    "serve": "node scripts/serve-out.mjs",
+    "desktop:dev": "tauri dev",
+    "desktop:build": "tauri build",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "format": "prettier --write .",
@@ -14,6 +16,7 @@
     "check": "npm run format:check && npm run lint && npm run typecheck"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.12.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.55.0",

@@ -1,6 +1,13 @@
 import type { MetadataRoute } from "next";
 
 /**
+ * `output: "export"` 下路由处理器必须显式声明静态 —— 静态导出没有 Node 运行时，
+ * 任何隐含的动态生成都无处执行。少了这一行，构建会直接报
+ * `export const dynamic = "force-static" not configured on route "/robots.txt"`。
+ */
+export const dynamic = "force-static";
+
+/**
  * 个人财务页面不该被收录。
  *
  * 这里和 `app/layout.tsx` 里的 `<meta name="robots">` 是**两道不同的闸**：

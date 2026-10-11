@@ -1,0 +1,33 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "个人资产看板",
+  "version": "0.1.0",
+  "identifier": "com.agwave.assets-ledger",
+  "build": {
+    "frontendDist": "../out",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "node scripts/build-desktop.mjs"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "个人资产看板",
+        "width": 1100,
+        "height": 820,
+        "minWidth": 360,
+        "minHeight": 480,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "comment": "CSP 暂时留空。这个应用只从本地自定义协议加载自己的资源，不加载任何远程内容，所以默认的隔离已经够用；而加严格 CSP 需要把 Tauri IPC 的源放进去，写错了会在 Windows 上直接白屏，而那个环境本机测不了。要加的话先在目标平台上验证过再上。",
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"]
+  }
+}

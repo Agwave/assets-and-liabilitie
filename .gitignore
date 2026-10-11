@@ -17,6 +17,14 @@
 /.next/
 /out/
 
+# 构建时由 config/assets.yaml 同步生成，不进仓库（里面是真实数据）
+# 文件名要和 scripts/web-data.mjs 里的 TARGET 一致 —— 改成 ledger.json 时
+# 漏改这里的话，你的真实资产会被提交进仓库。
+/public/ledger.json
+
+# Tauri / Rust 构建产物
+/src-tauri/target/
+
 # production
 /build
 

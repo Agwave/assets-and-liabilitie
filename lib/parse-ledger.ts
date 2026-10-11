@@ -1,45 +1,35 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
-import path from "node:path";
-
 import { parse } from "yaml";
 
 import { collectLedgerProblems, type Entry } from "@/lib/ledger";
 
 /**
- * 读取并校验 `config/assets.yaml`。
+ * 把 YAML 文本解析成账本。**纯函数，不碰文件系统** —— 桌面端和网页端共用同一份，
+ * 文件从哪来（Tauri 读本地 / 网页 fetch / 用户粘贴）不归它管。
  *
- * **这个文件只放资产项和负债项。** 标题、副标题、数据截止日期、页脚备注
- * 这些固定信息在 `config/site.ts` 里 —— 它们不随数据变，就不该混在数据文件里。
+ * 这层校验存在的理由：YAML 有很多**会静默出错**的写法。
+ * `amout:` 少打一个 t，YAML 解析器不报错，只会安静地给出一条 amount 为
+ * undefined 的记录；`1,600,000` 会被解析成**字符串**。没有这层，
+ * 这些错误会一路飘到汇总数字里才暴露，而且看起来完全正常。
  *
- * 配置从 TypeScript 换成 YAML 之后，**编辑器不再帮你检查字段名了** ——
- * `amout:` 少打一个 t，YAML 解析器不会报错，只会安静地给出一条
- * amount 为 undefined 的记录。所以这层校验不是可选的装饰，
- * 它是换掉类型系统之后补上的那个洞：
- *
- *   · 拒绝**未知字段**（拼错的键名在这里被抓住，不会静默变 undefined）
- *   · 校验每个字段的类型，并且针对 YAML 特有的坑给出可操作的修改建议
+ *   · 拒绝**未知字段**（拼错的键名在这里被抓住，并猜出你想写哪个）
+ *   · 校验字段类型，针对 YAML 特有的坑给出可操作的修改建议
  *   · 最后把业务规则（`lib/ledger.ts`）的问题合到一起一次报全
  *
- * 它在模块加载时执行，所以 `pnpm build` 会跑到：配置写坏时构建失败，
- * 而不是发布一个数字悄悄错掉的页面。
+ * **返回结果而不是抛错。** 以前它跑在构建期，坏配置让构建失败就够了；
+ * 现在它跑在应用里，得把问题渲染成一个能读的错误页，而不是把界面炸掉。
  */
-
-const CONFIG_FILE = "config/assets.yaml";
-const EXAMPLE_FILE = "config/assets.example.yaml";
-const CONFIG_PATH = path.join(process.cwd(), CONFIG_FILE);
 
 const TOP_LEVEL_KEYS = ["assets", "liabilities"] as const;
 const ENTRY_KEYS = ["name", "amount", "note"] as const;
 
-export type LedgerConfig = {
+export type ParsedLedger = {
   readonly assets: readonly Entry[];
   readonly liabilities: readonly Entry[];
 };
 
-/** 把问题清单拼成一段可读的报错，格式和 lib/ledger.ts 保持一致。 */
-function fail(headline: string, problems: readonly string[]): never {
-  throw new Error(`${headline}\n` + problems.map((problem) => `  · ${problem}`).join("\n"));
-}
+export type ParseResult =
+  | { readonly ok: true; readonly ledger: ParsedLedger }
+  | { readonly ok: false; readonly problems: readonly string[] };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -85,7 +75,7 @@ function describeAmountProblem(value: unknown): string | null {
   return `是${typeName(value)} —— 金额必须是数字`;
 }
 
-/** 逐条记录挑毛病。返回空数组表示这一侧没问题。 */
+/** 逐条记录挑毛病，顺手把合格的收进结果。 */
 function checkEntryList(side: string, value: unknown, problems: string[]): Entry[] | null {
   if (!Array.isArray(value)) {
     problems.push(`「${side}」应该是一个列表（每行以「- 」开头），现在是${typeName(value)}。`);
@@ -155,26 +145,29 @@ function checkEntryList(side: string, value: unknown, problems: string[]): Entry
   return entries;
 }
 
-function loadLedgerConfig(): LedgerConfig {
-  const source = readFileSync(CONFIG_PATH, "utf8");
-
+/** 把 YAML 文本解析 + 校验成账本。 */
+export function parseLedgerYaml(source: string): ParseResult {
   let raw: unknown;
   try {
     raw = parse(source);
   } catch (error) {
-    throw new Error(
-      `${CONFIG_FILE} 不是合法的 YAML，构建已中止：\n` +
-        `  ${error instanceof Error ? error.message.split("\n")[0] : String(error)}\n\n` +
-        `  最常见的两个原因：\n` +
-        `    · 值里有半角冒号 —— name: 招商银行: 活期 要写成 name: "招商银行: 活期"\n` +
-        `    · 缩进用了 Tab，或同一层级的缩进宽度不一致\n`,
-    );
+    const detail = error instanceof Error ? error.message.split("\n")[0] : String(error);
+    return {
+      ok: false,
+      problems: [
+        `YAML 语法错误：${detail}\n` +
+          `最常见的两个原因：值里有半角冒号（` +
+          `name: 招商银行: 活期 要写成 name: "招商银行: 活期"），` +
+          `或者缩进用了 Tab、同一层级的缩进宽度不一致。`,
+      ],
+    };
   }
 
   if (!isRecord(raw)) {
-    fail(`${CONFIG_FILE} 的内容有问题，构建已中止：`, [
-      `顶层应该是一个字段组（包含 profile / assets / liabilities），现在是${typeName(raw)}。`,
-    ]);
+    return {
+      ok: false,
+      problems: [`顶层应该是一个字段组（包含 assets 和 liabilities），现在是${typeName(raw)}。`],
+    };
   }
 
   const problems: string[] = [];
@@ -195,49 +188,15 @@ function loadLedgerConfig(): LedgerConfig {
   const liabilities = checkEntryList("负债", raw.liabilities, problems);
 
   if (problems.length > 0) {
-    fail(`${CONFIG_FILE} 的内容有问题（共 ${problems.length} 处），构建已中止：`, problems);
+    return { ok: false, problems };
   }
 
   // 形状已经对了，再跑业务规则。两组问题分开报是因为形状不对时
   // 规则检查没有意义 —— 数据还不是 Entry[] 的样子。
   const ledgerProblems = collectLedgerProblems(assets!, liabilities!);
   if (ledgerProblems.length > 0) {
-    fail(`${CONFIG_FILE} 的数据有问题，构建已中止：`, ledgerProblems);
+    return { ok: false, problems: ledgerProblems };
   }
 
-  return { assets: assets!, liabilities: liabilities! };
-}
-
-/** 上一次读到的结果，连同当时的文件修改时间。 */
-let cache: { readonly mtimeMs: number; readonly config: LedgerConfig } | null = null;
-
-/**
- * 全站唯一的配置出口。
- *
- * **按 mtime 缓存，而不是在模块加载时读一次。** 这不是过早优化，是 dev 体验的
- * 必需品：YAML 是用 `fs` 读的，不在 Turbopack 的模块图里，改它不会触发重编译。
- * 如果只在模块加载时读一次，你改完配置刷新页面看到的还是旧数字 ——
- * 必须重启 dev server 才生效，而那种「改了没反应」最容易被误判成代码有 bug。
- *
- * 现在每次渲染都 stat 一下文件，只有 mtime 变了才重新解析。stat 很便宜，
- * YAML 解析只在改动后发生。生产构建是静态生成，构建期调一次就固化了。
- */
-export function getLedgerConfig(): LedgerConfig {
-  if (!existsSync(CONFIG_PATH)) {
-    throw new Error(
-      `找不到 ${CONFIG_FILE}，构建已中止。\n\n` +
-        `  这个文件被 .gitignore 排除了 —— 里面是你的真实资产数据，不该进仓库。\n` +
-        `  从模板复制一份再改：\n\n` +
-        `      cp ${EXAMPLE_FILE} ${CONFIG_FILE}\n`,
-    );
-  }
-
-  const { mtimeMs } = statSync(CONFIG_PATH);
-  if (cache !== null && cache.mtimeMs === mtimeMs) {
-    return cache.config;
-  }
-
-  const config = loadLedgerConfig();
-  cache = { mtimeMs, config };
-  return config;
+  return { ok: true, ledger: { assets: assets!, liabilities: liabilities! } };
 }

@@ -1,8 +1,19 @@
+import type { ReactNode } from "react";
+
 import { ThemeToggle } from "@/components/theme-toggle";
 import { formatDate } from "@/lib/format";
 import type { Profile } from "@/lib/ledger";
 
-export function SiteHeader({ profile }: { readonly profile: Profile }) {
+type Props = {
+  readonly profile: Profile;
+  /**
+   * 页头右侧的额外按钮（桌面端用来放「刷新」和「配置文件夹」）。
+   * 网页端不传 —— 那边没有本地文件可刷新。
+   */
+  readonly actions?: ReactNode;
+};
+
+export function SiteHeader({ profile, actions }: Props) {
   return (
     <header className="flex flex-wrap items-start justify-between gap-4 py-8 sm:py-12">
       <div className="flex flex-col gap-1.5">
@@ -20,7 +31,10 @@ export function SiteHeader({ profile }: { readonly profile: Profile }) {
         <p className="text-sm text-faint-foreground">数据截至 {formatDate(profile.asOf)}</p>
       </div>
 
-      <ThemeToggle />
+      <div className="flex flex-wrap items-center gap-1.5">
+        {actions}
+        <ThemeToggle />
+      </div>
     </header>
   );
 }

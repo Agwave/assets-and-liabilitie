@@ -1,0 +1,22 @@
+[package]
+name = "assets-ledger"
+version = "0.1.0"
+description = "个人资产负债看板"
+edition = "2021"
+# Tauri 2 要求的最低版本
+rust-version = "1.77.2"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+
+# 发布包体积优先：这是个只读展示的小应用，不值得为启动速度换几十兆体积
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
