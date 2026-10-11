@@ -12,23 +12,35 @@ jobs:
   build:
     runs-on: windows-latest
 
+    # 下面几个 action 的版本是**最早支持 Node.js 24 的那个**，不是最新的。
+    # GitHub 已经不给 Node 20 的 action 供货了，会打印弃用警告；
+    # 但直接跳到最新大版本会跨好几个版本，中间可能有本机验不了的行为变化
+    # （比如 setup-node v7 是一次 ESM 迁移）。最小升级最稳。
+    # 判断依据是各 action 的 action.yml 里 `runs.using`：
+    #   checkout      v5+ → node24
+    #   setup-node    v5+ → node24
+    #   action-setup  v5+ → node24
+    #   upload-artifact v6+ → node24
+    # 要动这些版本号前，先按上面这条标准确认一遍。
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: 装 pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: 装 Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
 
       # Rust 工具链 + 缓存。缓存是关键：没有它每次都要重编整个依赖树，
       # 首次约 5~10 分钟，命中缓存后一两分钟。
+      # dtolnay/rust-toolchain 是复合型 action，不跑 Node，不受弃用影响。
       - name: 装 Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # rust-cache@v2 已经是 node24，不用动
       - name: 缓存 Rust 依赖
         uses: swatinem/rust-cache@v2
         with:
@@ -46,7 +58,7 @@ jobs:
         run: pnpm desktop:build
 
       - name: 收集产物
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: 个人资产看板-windows
           if-no-files-found: error
