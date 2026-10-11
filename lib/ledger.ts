@@ -9,12 +9,14 @@
  * 「我有哪些东西、各值多少」，中间加一层分类只会多一处要维护、多一层要点开。
  */
 
-/** 页面身份信息。来自 YAML 的 `profile` 段。 */
+/**
+ * 页面身份信息。定义在 `config/site.ts`，**不来自数据文件** ——
+ * 它不随资产数据变，也就不该混进 `config/assets.yaml`。
+ */
 export type Profile = {
   readonly name: string;
   readonly subtitle: string;
-  /** 数据截止日期，YYYY-MM-DD */
-  readonly asOf: string;
+  /** 页脚备注 */
   readonly note: string;
 };
 

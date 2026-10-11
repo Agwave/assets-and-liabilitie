@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
-import { formatDate } from "@/lib/format";
 import type { Profile } from "@/lib/ledger";
 
 type Props = {
@@ -27,8 +26,6 @@ export function SiteHeader({ profile, actions }: Props) {
         </div>
 
         <p className="text-base text-muted-foreground">{profile.subtitle}</p>
-
-        <p className="text-sm text-faint-foreground">数据截至 {formatDate(profile.asOf)}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">

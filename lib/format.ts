@@ -40,10 +40,3 @@ export function formatPercent(part: number, total: number): string {
   if (total <= 0) return "0.0%";
   return `${((part / total) * 100).toFixed(1)}%`;
 }
-
-/** `1 分 20 秒` 之类的相对时间不做了 —— 全站静态生成，只显示配置里写死的日期。 */
-export function formatDate(iso: string): string {
-  const [year, month, day] = iso.split("-");
-  if (!year || !month || !day) return iso;
-  return `${year} 年 ${Number(month)} 月 ${Number(day)} 日`;
-}
