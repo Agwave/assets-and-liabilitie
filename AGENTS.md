@@ -179,8 +179,20 @@ TypeScript —— 在 Rust 里再实现一遍，两份实现迟早会不一致�
 - **`include_str!` 的路径是相对源文件解析的，不是相对项目根。**
   `src-tauri/src/main.rs` 里写的是 `../../config/assets.example.yaml`。
   挪动那个文件或那个 rs 文件，构建会直接失败。
-- **本机验不了 `src-tauri/`。** 没有 Rust 工具链，也没有 Windows。改完之后
-  CI 是第一次真正编译 —— 所以改动要保守，别用不确定的 API。
+- **本机验不了 `src-tauri/` 的编译，但能验到「Rust 之前」那一段。**
+  跑 `pnpm desktop:build`：它会找到 `tauri` 命令、读取并**严格校验**
+  `tauri.conf.json`，然后停在 `cargo: No such file or directory`。
+  停在这一句就说明配置是好的；停在别的地方就是真有问题。改动后**一定要跑一次**，
+  别等 CI —— 下面两条就是靠这一步当场抓出来的。
+- **`tauri.conf.json` 会 schema 校验，不能靠多加字段写注释。** JSON 没有注释语法，
+  而 Tauri 用 schema 严格校验：多加一个 `"comment"` 键会直接报
+  `Additional properties are not allowed`。要记决策就写进文档，别写进配置。
+- **`@tauri-apps/cli` 和 `@tauri-apps/api` 是两个包，都要装。**
+  前者是构建工具（提供 `tauri` 命令），后者是运行时库（提供 `invoke`）。
+  只装后者的话 `pnpm desktop:build` 会报 `tauri: not found`。
+- **CSP 现在是 `null`，这是有意的。** 应用只从本地自定义协议加载自己的资源，
+  不加载远程内容，默认隔离够用；而加严格 CSP 需要把 Tauri IPC 的源写对，
+  写错会在 Windows 上直接白屏 —— 那个环境本机测不了。要加的话先在目标平台验证过再上。
 - **`productName` 是中文。** 它决定安装目录、开始菜单项和 exe 名，也决定
   NSIS 脚本里的字符串编码。这是 CI 上最可能出问题的一处，如果打包失败先怀疑它。
 
