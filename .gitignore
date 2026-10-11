@@ -24,6 +24,8 @@
 
 # Tauri / Rust 构建产物
 /src-tauri/target/
+# tauri-build 每次构建都会重新生成的能力 schema，不进仓库
+/src-tauri/gen/
 
 # production
 /build

@@ -38,9 +38,11 @@ pnpm build          # 静态导出，产物不含数据
 node --import ./register.mjs ...   # 想单测校验逻辑见第 4 节
 ```
 
-**桌面形态本机验不了** —— 这台机器是 WSL，没有 Rust 工具链也没有 Windows。
-那边只能靠 GitHub Actions 构建，所以改动 `src-tauri/` 后**必须特别小心**，
-见第 6 节的坑。
+**改动 `src-tauri/` 之后必须跑 `pnpm check:rust`** —— 它能在本机做 Rust 类型检查，
+已经把「`Path` 没导入」这类编译错误当场抓出来过。用法和原理见第 4 节。
+
+它**不能**验链接、Windows 资源嵌入和 NSIS 打包，那几段仍然只能靠 CI。
+本机也没有 Windows，所以「装完能不能跑」最终还得真机验证。
 
 ## 2. Git commit message 格式
 
@@ -92,14 +94,37 @@ node --import ./register.mjs ...   # 想单测校验逻辑见第 4 节
 
 ## 4. 校验命令
 
-| 目的                           | 命令                                           |
-| ------------------------------ | ---------------------------------------------- |
-| 排版 + lint + 类型（快速自检） | `pnpm check`                                   |
-| 完整校验（含静态导出）         | `pnpm build`                                   |
-| 开发服务器（网页形态）         | `pnpm dev`                                     |
-| 预览导出产物                   | `pnpm build && pnpm serve`                     |
-| 打 Windows 安装包              | `pnpm desktop:build`（需要 Rust，本机跑不了）  |
-| 只跑 lint / 格式化 / 类型      | `pnpm lint` / `pnpm format` / `pnpm typecheck` |
+| 目的                           | 命令                                                        |
+| ------------------------------ | ----------------------------------------------------------- |
+| 排版 + lint + 类型（快速自检） | `pnpm check`                                                |
+| 完整校验（含静态导出）         | `pnpm build`                                                |
+| 开发服务器（网页形态）         | `pnpm dev`                                                  |
+| 预览导出产物                   | `pnpm build && pnpm serve`                                  |
+| 打 Windows 安装包              | `pnpm desktop:build`（只到 cargo 那步，本机没有完整工具链） |
+| **检查 Rust 能不能编译**       | **`pnpm check:rust`** —— 改 `src-tauri/` 后必跑             |
+| 只跑 lint / 格式化 / 类型      | `pnpm lint` / `pnpm format` / `pnpm typecheck`              |
+
+### `pnpm check:rust` 为什么这么绕
+
+直接 `cargo check` 会失败，但**不是代码的问题**：Tauri 在 Linux 上依赖
+webkit2gtk / dbus 那套系统开发库，本机没装也装不了（没有免密 sudo）。
+
+绕法是把编译目标换成 **Windows** —— 那样 cargo 压根不碰 Linux 系统库，
+而这本来就是我们真正要编的目标：
+
+```bash
+cargo check --target x86_64-pc-windows-gnu
+```
+
+换成 Windows 目标后还差一步：`tauri-build` 要调 `mingw` 的 `windres` 把图标编进
+Windows 资源文件。但 **`cargo check` 只做类型检查、不链接**，那个资源文件的内容
+根本用不到，所以脚本会造一个只建空文件的桩替掉它。
+
+**能验**：语法、类型、借用检查 —— 这份 `main.rs` 里所有编译错误。
+**不能验**：链接、资源嵌入、NSIS 打包、运行时行为。
+
+首次使用要装 Rust 工具链和 Windows 目标（脚本会提示命令 / 自动装目标，共约 230MB）。
+CI 上不受影响 —— 那边自己装自己的。
 
 ### 测试校验逻辑
 
@@ -179,11 +204,12 @@ TypeScript —— 在 Rust 里再实现一遍，两份实现迟早会不一致�
 - **`include_str!` 的路径是相对源文件解析的，不是相对项目根。**
   `src-tauri/src/main.rs` 里写的是 `../../config/assets.example.yaml`。
   挪动那个文件或那个 rs 文件，构建会直接失败。
-- **本机验不了 `src-tauri/` 的编译，但能验到「Rust 之前」那一段。**
-  跑 `pnpm desktop:build`：它会找到 `tauri` 命令、读取并**严格校验**
-  `tauri.conf.json`，然后停在 `cargo: No such file or directory`。
-  停在这一句就说明配置是好的；停在别的地方就是真有问题。改动后**一定要跑一次**，
-  别等 CI —— 下面两条就是靠这一步当场抓出来的。
+- **改 `src-tauri/` 后跑 `pnpm check:rust`，别等 CI。**
+  它做真正的 Rust 类型检查（原理见第 4 节），已经当场抓出过 `Path` 没导入。
+  另外跑 `pnpm desktop:build` 能验到「Rust 之前」那一段：会找到 `tauri` 命令、
+  读取并**严格校验** `tauri.conf.json`，然后停在 cargo 那步。
+  **这两个是互补的**：前者验 Rust 代码，后者验配置和脚本链。
+  下面两条就是靠它们当场抓出来的。
 - **`tauri.conf.json` 会 schema 校验，不能靠多加字段写注释。** JSON 没有注释语法，
   而 Tauri 用 schema 严格校验：多加一个 `"comment"` 键会直接报
   `Additional properties are not allowed`。要记决策就写进文档，别写进配置。

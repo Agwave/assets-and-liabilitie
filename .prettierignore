@@ -4,8 +4,13 @@ out
 build
 node_modules
 
+# Rust 构建产物（本机跑过 cargo check / cargo build 就会生成）
+src-tauri/target
+src-tauri/gen
+
 # 锁文件由包管理器负责，不要格式化
 pnpm-lock.yaml
+src-tauri/Cargo.lock
 
 # 生成物
 next-env.d.ts

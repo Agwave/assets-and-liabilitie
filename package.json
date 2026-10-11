@@ -13,6 +13,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
+    "check:rust": "node scripts/check-rust.mjs",
     "check": "npm run format:check && npm run lint && npm run typecheck"
   },
   "dependencies": {
