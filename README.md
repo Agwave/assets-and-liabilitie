@@ -25,12 +25,37 @@ pnpm dev                                           # http://localhost:3000
 
 ## 装成 Windows 桌面应用
 
-本机不需要装任何工具链 —— 构建交给 GitHub Actions：
+本机不需要装任何工具链 —— 构建交给 GitHub Actions。
 
-1. 把这个仓库推到 GitHub（**建议设为私有**）
-2. 在 Actions 页面点「构建 Windows 安装包」→ Run workflow
-3. 等几分钟，从那次运行的 Artifacts 里下载 `个人资产看板-windows`
-4. 解压 → 运行 `.exe` 安装
+### 发一个版本（日常用这个）
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+CI 会自动构建，并把安装包挂到 **Releases** 页：
+
+```
+https://github.com/Agwave/assets-and-liabilitie/releases
+```
+
+那里的安装包是**永久**的，点一下直接下 exe，不用解压 zip。以后发新版就把版本号往上加
+（`v0.1.1`、`v0.2.0`…）。发版说明会从提交信息自动生成。
+
+### 临时构建（改代码时调试用）
+
+Actions 页面 → 「构建 Windows 安装包」→ **Run workflow**。产物挂在那次运行下面的
+Artifacts 里，**保留 90 天**，下载是个 zip。
+
+> 注意用 **Run workflow** 起一次新的运行，而不是在旧运行上点 **Re-run** ——
+> 后者重跑的是**那一次对应的旧提交**，即使 main 已经往前走了。
+
+### 私有仓库的 Release 只有你能看到
+
+仓库是私有的，所以 Releases 页也**只有登录你自己的账号才能访问**。
+想给别人用的话，直接把 exe 发过去就行（仓库里没有你的任何数据，
+公开也不泄露什么 —— 但保持私有更稳妥，那是防误提交的安全网）。
 
 > **首次运行 Windows 会拦一次**，弹「Windows 已保护你的电脑」。
 > 点「更多信息」→「仍要运行」。这是因为没有代码签名证书（一年几百到几千，
