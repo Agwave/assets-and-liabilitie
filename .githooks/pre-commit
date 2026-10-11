@@ -1,0 +1,39 @@
+#!/bin/sh
+#
+# 拦下「真实数据被提交」这件事。
+#
+# 这个仓库是要公开的，而它管的偏偏是个人财务数据 —— 一旦误提交，就是全网可见，
+# 而且 fork / 爬虫 / CDN 缓存都收不回来（历史重写也没用，别人手上的副本不会消失）。
+#
+# 光靠 .gitignore 不够：`git add -f` 能强行绕过它，而这个仓库里
+# config/assets.example.yaml 是**被跟踪的**，往那个文件里粘真实数据再提交
+# 同样是漏。
+#
+# 这个钩子只查「路径」。内容层面的漏（比如把数字粘到 README 里）它管不了，
+# 也管不了 —— 它不该知道你的数据长什么样。所以它是一道网，不是全部。
+#
+# 不生效的话：跑一次 `node scripts/setup-hooks.mjs`（pnpm install 会自动跑）。
+# 或者 `git config core.hooksPath .githooks`。
+
+FORBIDDEN='^(config/assets\.yaml|public/ledger\.json)$'
+
+blocked=$(git diff --cached --name-only --diff-filter=ACM | grep -E "$FORBIDDEN" || true)
+
+if [ -n "$blocked" ]; then
+  {
+    echo ""
+    echo "  ✗ 提交被拦下：暂存区里有不该进仓库的文件"
+    echo ""
+    echo "$blocked" | sed 's/^/      /'
+    echo ""
+    echo "  这些是数据文件（见 .gitignore），这个仓库是公开的。"
+    echo "  把它们取消暂存：git restore --staged <文件>"
+    echo ""
+    echo "  确实要提交的话用 git commit --no-verify 绕过 —— 但要清楚那意味着"
+    echo "  你的资产数据会永久留在公开的 git 历史里。"
+    echo ""
+  } >&2
+  exit 1
+fi
+
+exit 0

@@ -249,8 +249,12 @@ TypeScript —— 在 Rust 里再实现一遍，两份实现迟早会不一致�
   取数据的写法是：await 之后再 setState，见 `components/ledger-app.tsx` 里的 effect。
 - **不要用 shadcn 的 `Card` / `Table` / `Separator`。** 那几个组件带 `"use client"`，
   用在纯静态卡片上会白白推进客户端包。`components/ui/` 里的都是手写的。
-- **`config/assets.yaml` 必须留在 `.gitignore` 里。** 里面是真实的个人财务数据。
-  仓库里提交的是 `config/assets.example.yaml`。
+- **`config/assets.yaml` 必须留在 `.gitignore` 里，而且有两道网盯着。**
+  这个仓库是**公开**的（作品集），数据一旦提交出去就收不回来（fork 和爬虫的副本
+  不受你控制，重写历史也没用）。`.githooks/pre-commit` 在本地拦，
+  `.github/workflows/guard.yml` 在 CI 兜底（防 `--no-verify` 和网页端提交）。
+  **两道都只查路径** —— 往 README 里粘数字这种内容层面的漏它们管不了。
+  改动这两个文件前先想清楚它们在防什么。
 - **「配置还是模板」这个判断不能省。** 首启创建的配置里是「自住房 ¥1,600,000」
   这种示例数字，**长得和真账一模一样**。桌面端在 Rust 里比对模板（`is_template`），
   网页端在同步数据时比对（`isTemplate`），两边都要保留 —— 少一边就会出现

@@ -1,0 +1,29 @@
+name: 防误提交检查
+
+# 每次推 main 和每个 PR 都跑。故意不挂 tag —— 它跟发版没关系，
+# 而且这个检查只要几秒，公开仓库的 Actions 额度是无限的。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  no-data-in-repo:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # 这是 .githooks/pre-commit 的兜底：钩子能被 --no-verify 绕过，
+      # 网页端提交也完全不经过它。CI 这道绕不过去。
+      #
+      # 只能查路径 —— 把数字粘进 README 这类内容层面的漏，CI 无从判断
+      # （它不该知道你的数据长什么样）。所以两类检查都要有。
+      - name: 确认数据文件不在仓库里
+        run: |
+          if git ls-files | grep -qE '^(config/assets\.yaml|public/ledger\.json)$'; then
+            echo "::error::数据文件被提交了：$(git ls-files | grep -E '^(config/assets\.yaml|public/ledger\.json)$')"
+            echo "这个仓库是公开的，请立刻删除并重写历史。"
+            exit 1
+          fi
+          echo "✓ 仓库里没有 config/assets.yaml，也没有 public/ledger.json"

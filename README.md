@@ -1,17 +1,47 @@
 # 个人资产负债看板
 
-一个**只读**的个人资产 / 负债展示页。数据来自一份本地 YAML —— 没有编辑入口、
-没有数据库、没有账号、没有接口。
+一个**只读**的个人资产 / 负债看板。数据来自一份本地 YAML —— 没有编辑入口、
+没有数据库、没有账号、没有后端。
 
-有两种形态，共用同一套前端：
+同时是 **Windows 桌面应用**和**网页**，共用同一套前端。
 
-| 形态                 | 怎么用                 | 数据从哪来                                     |
-| -------------------- | ---------------------- | ---------------------------------------------- |
-| **Windows 桌面应用** | 双击图标               | 运行期读 `%APPDATA%\assets-ledger\assets.yaml` |
-| **网页**             | `pnpm dev`，或静态托管 | 运行期 `fetch` 构建时同步出来的副本            |
+<!--
+  截图放这里。把图片丢进 docs/screenshots/，然后取消下面的注释：
 
-**构建产物里不含任何数字。** 数据一律运行期读，所以改一次数据不用重新打包应用，
-CI 构建时也接触不到你的资产。
+  | 深色 | 浅色 |
+  | --- | --- |
+  | ![深色](./docs/screenshots/dark.png) | ![浅色](./docs/screenshots/light.png) |
+-->
+
+## 这个项目里值得一提的几件事
+
+**构建产物里不含任何数字。** 数据一律**运行期**读 —— 桌面端由 Rust 读本地文件、
+网页端 fetch 一份同步副本。所以改一次数据不用重新打包应用，CI 构建时也根本
+拿不到你的资产。
+
+**8MB 的桌面应用。** 用 Tauri 而不是 Electron：Rust 编译成原生二进制，界面借
+Windows 自带的 WebView2。Electron 会把整个 Chromium 塞进每个应用（150MB 起）。
+
+**配色是算出来的，不是挑的。** 资产用绿、负债用红 —— 而绿红正是红绿色盲最经典的
+混淆对。这四个色值是固定一侧、扫另一侧候选、逐组合跑验证器搜出来的：明度带 /
+色度下限 / 对比度 / 色盲可分辨性四项检查，在明暗两种模式下全部通过。
+
+**YAML 的静默陷阱全被拦住。** `1,600,000` 和 `1_600_000` 都会被 YAML 解析成
+**字符串**；`amout:` 少打一个字母不报错，只会安静地变成 `undefined`。
+这些在应用里会渲染成一张能读的错误页，指出是第几条、该怎么改。
+
+**两种形态，一套代码。** 桌面和网页的差别只有一处 —— `lib/data-source.ts` 里
+桌面走 `invoke`、网页走 `fetch`，其余全部共用。
+
+**本机就能验证，不用等 CI。** 包括 Rust 那部分：`pnpm check:rust` 用 Windows
+目标做类型检查，绕开了 Linux 缺 webkit2gtk 系统库的问题。
+
+## 两种形态
+
+| 形态                 | 怎么用                 | 数据在哪                     |
+| -------------------- | ---------------------- | ---------------------------- |
+| **Windows 桌面应用** | 双击图标               | **exe 旁边的** `assets.yaml` |
+| **网页**             | `pnpm dev`，或静态托管 | `config/assets.yaml`         |
 
 ## 快速开始（网页形态）
 
@@ -51,11 +81,11 @@ Artifacts 里，**保留 90 天**，下载是个 zip。
 > 注意用 **Run workflow** 起一次新的运行，而不是在旧运行上点 **Re-run** ——
 > 后者重跑的是**那一次对应的旧提交**，即使 main 已经往前走了。
 
-### 私有仓库的 Release 只有你能看到
+### 你也可以用它
 
-仓库是私有的，所以 Releases 页也**只有登录你自己的账号才能访问**。
-想给别人用的话，直接把 exe 发过去就行（仓库里没有你的任何数据，
-公开也不泄露什么 —— 但保持私有更稳妥，那是防误提交的安全网）。
+仓库里的代码是通用的，克隆下来换成自己的 `config/assets.yaml` 就行 ——
+**里面没有我的任何数据**（`config/assets.yaml` 从来没进过 git，
+而且有两道自动检查盯着，见下面「为什么它不在 git 里」）。
 
 > **首次运行 Windows 会拦一次**，弹「Windows 已保护你的电脑」。
 > 点「更多信息」→「仍要运行」。这是因为没有代码签名证书（一年几百到几千，
@@ -155,12 +185,25 @@ liabilities:
 好处不只是「不进仓库」：因为 CI 拿不到这个文件，也**不可能**把它打进安装包。
 （本地构建时它存在，所以构建脚本会额外把产物里的副本删掉，见 `scripts/build-desktop.mjs`。）
 
+**而且这个仓库是公开的，所以有两道网盯着它别误提交：**
+
+| 检查     | 位置                          | 挡住什么                               |
+| -------- | ----------------------------- | -------------------------------------- |
+| Git 钩子 | `.githooks/pre-commit`        | 本地提交时，暂存区里出现数据文件就拦下 |
+| CI 检查  | `.github/workflows/guard.yml` | 兜住 `--no-verify` 和网页端提交        |
+
+钩子靠 `core.hooksPath` 生效，`pnpm install` 会自动配好（见 `scripts/setup-hooks.mjs`）；
+没生效的话跑一次 `node scripts/setup-hooks.mjs`。
+
+> 两道网都只能查**路径**。把真实数字粘进 README 这类内容层面的漏，它们都管不了 ——
+> 它们不该知道你的数据长什么样。所以自己提交前扫一眼仍然是最后的防线。
+
 ## 目录结构
 
 ```
 config/assets.example.yaml  ← 数据模板，进 git
 config/assets.yaml          ← 你的真实数据，被 gitignore
-config/site.ts              ← 标题、副标题、数据截止日期、页脚备注
+config/site.ts              ← 标题、副标题、页脚备注
 lib/ledger.ts               ← 类型、汇总计算、排序、业务规则
 lib/parse-ledger.ts         ← YAML 解析与字段校验（纯函数，桌面和网页共用）
 lib/data-source.ts          ← 数据源抽象：桌面 invoke / 网页 fetch
@@ -173,16 +216,17 @@ scripts/                    ← 构建与数据同步脚本
 
 ## 命令
 
-| 命令                 | 作用                                      |
-| -------------------- | ----------------------------------------- |
-| `pnpm dev`           | 开发服务器（网页形态）                    |
-| `pnpm build`         | 类型检查 + 静态导出到 `out/`              |
-| `pnpm serve`         | 预览 `out/`（先 `pnpm build`）            |
-| `pnpm check`         | 快速自检：排版 + lint + 类型              |
-| `pnpm format`        | Prettier 格式化（含 Tailwind 类名排序）   |
-| `pnpm lint`          | ESLint                                    |
-| `pnpm typecheck`     | 只查类型                                  |
-| `pnpm desktop:build` | 打 Windows 安装包（需要 Rust，日常靠 CI） |
+| 命令                 | 作用                                               |
+| -------------------- | -------------------------------------------------- |
+| `pnpm dev`           | 开发服务器（网页形态）                             |
+| `pnpm build`         | 类型检查 + 静态导出到 `out/`                       |
+| `pnpm serve`         | 预览 `out/`（先 `pnpm build`）                     |
+| `pnpm check`         | 快速自检：排版 + lint + 类型                       |
+| `pnpm format`        | Prettier 格式化（含 Tailwind 类名排序）            |
+| `pnpm lint`          | ESLint                                             |
+| `pnpm typecheck`     | 只查类型                                           |
+| `pnpm check:rust`    | 检查 Rust 代码能不能编译（改 `src-tauri/` 后必跑） |
+| `pnpm desktop:build` | 打 Windows 安装包（需要完整 Rust 工具链）          |
 
 **本仓库没有测试框架，这是刻意的。** 类型系统 + 运行期校验承担了测试的职责。
 
@@ -219,5 +263,16 @@ scripts/                    ← 构建与数据同步脚本
 - **只做了 Windows 打包。** Tauri 也支持 macOS / Linux，改 CI 的 runner 即可，
   但这次没做。
 - **没有代码签名**，首次运行会被 SmartScreen 拦一次。
-- **桌面形态本机验证不了。** 开发环境是 WSL，没有 Rust 也没有 Windows ——
-  `src-tauri/` 的改动只能靠 CI 验证。
+
+## 开发环境的一个坑
+
+开发机是 WSL，**没有 Windows**，所以桌面形态的「装完能不能跑」只能靠 CI 加真机验证。
+
+不过 Rust 代码本身是能在本机验的：`pnpm check:rust`。原理是把编译目标换成
+Windows —— 那样 cargo 就不会去碰 Linux 上缺失的 webkit2gtk / dbus 系统库，
+而这本来就是真正要编的目标。`tauri-build` 要的 `windres` 用一个空文件桩顶替，
+因为 `cargo check` 只做类型检查、不链接，那个资源文件的内容用不到。
+
+也踩过一些坑，都记在 [AGENTS.md](./AGENTS.md) 里了 —— Tauri 会严格校验
+`tauri.conf.json`（连加个注释字段都不行）、ESLint 的 flat config 不读 `.gitignore`、
+NSIS 对含非 ASCII 的脚本要求 UTF-8 BOM，等等。
